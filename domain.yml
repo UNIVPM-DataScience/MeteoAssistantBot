@@ -1,0 +1,58 @@
+version: "3.1"
+
+intents:
+  - start
+  - help
+  - chiedi_meteo
+  - dammi_meteo
+
+entities:
+  - city
+
+slots:
+  city:
+    type: text
+    mappings:
+      - type: from_entity
+        entity: city
+
+forms:
+  weather_form:
+    required_slots:
+      - city
+
+responses:
+  utter_start:
+    - text: |
+        👋 Ciao! Sono MeteoAssistantBot, il tuo assistente meteo personale.   
+        Sono qui per fornirti previsioni precise e aggiornate in pochi secondi! 🌦️ 
+        
+        Come posso aiutarti oggi? ☀️🌧️🌨️
+
+        ℹ️ Per scoprire tutte le funzionalità, digita il comando /help.
+
+
+  utter_help:
+    - text: |
+        Puoi utilizzare uno dei seguenti comandi per interagire con me:
+        - **Vorrei cercare una ricetta**: per comporre la tua ricetta ti indicherò tipo di portata e numero di persone.  
+        - **Vorrei cercare una ricetta per nome**: per cercare una ricetta direttamente con il suo nome.  
+        - **Dimmi una ricetta casuale**: per chiedermi di mandarti una ricetta a mia scelta tra le tante che conosco.  
+        - **Vorrei creare un menu**: per chiedermi di creare un menu con un numero di portate a tua scelta.
+
+  utter_chiedi_meteo:
+    - text: "Certo, per quale città?"
+
+  utter_ask_weather_form_city:
+    - text: "In quale città desideri sapere il meteo?"
+
+  utter_submit_weather_form:
+    - text: "Perfetto, sto cercando il meteo per {city}…"
+
+actions:
+  - action_get_weather
+  - validate_weather_form
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

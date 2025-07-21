@@ -1,0 +1,33 @@
+version: "3.1"
+rules:
+- rule: Rispondi al comando /start
+  steps:
+  - intent: start
+  - action: utter_start
+
+- rule: Rispondi al comando /help
+  steps:
+  - intent: help
+  - action: utter_help
+
+- rule: Attiva il form per il meteo
+  steps:
+    - intent: chiedi_meteo
+    - action: weather_form
+    - active_loop: weather_form
+
+- rule: Attiva form anche con dammi_meteo
+  steps:
+    - intent: dammi_meteo
+    - action: weather_form
+    - active_loop: weather_form
+
+- rule: Esegui form weather e chiudi il loop
+  condition:
+    - active_loop: weather_form
+  steps:
+    - action: weather_form
+    - active_loop: null
+    - action: utter_submit_weather_form
+    - action: action_get_weather
+
