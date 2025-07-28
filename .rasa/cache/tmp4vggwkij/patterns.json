@@ -1,0 +1,6 @@
+[
+  {
+    "name": "date",
+    "pattern": "(\\boggi\\b|\\bdomani\\b|\\bdopodomani\\b|\\bstasera\\b|\\bmattina\\b|\\bpomeriggio\\b|\\bsera\\b|\\bnotte\\b)"
+  }
+]

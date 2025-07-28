@@ -1,4 +1,5 @@
 version: "3.1"
+
 nlu:
 - intent: start
   examples: |
@@ -20,66 +21,27 @@ nlu:
     - qual è la situazione meteo?
     - raccontami il meteo
     - com’è il meteo oggi?
-    - puoi parlarmi del meteo?
+    - puoi parlarmi del meteo
 
 - intent: dammi_meteo
   examples: |
-    - Dammi il meteo a [Torino](city)
-    - Qual è il meteo a [Milano](city)
-    - Voglio sapere il meteo per [milano](city)
-    - Che tempo fa a [milano](city)?
-    - Dammi meteo [mosca](city)
-    - Dammi il meteo per [New York](city)
-    - [Londra](city)
-    - [Berlino](city)
-    - [New York](city)
-    - [Tokyo](city)
-    - [Parigi](city)
-    - [Roma](city)
-    - [Madrid](city)
-    - [Pechino](city)
-    - [Shanghai](city)
-    - [Hong Kong](city)
-    - [Singapore](city)
-    - [Los Angeles](city)
-    - [San Francisco](city)
-    - [Chicago](city)
-    - [Toronto](city)
-    - [Vancouver](city)
-    - [Città del Messico](city)
-    - [San Paolo](city)
-    - [Buenos Aires](city)
-    - [Rio de Janeiro](city)
-    - [Dubai](city)
-    - [Abu Dhabi](city)
-    - [Doha](city)
-    - [Istanbul](city)
-    - [Il Cairo](city)
-    - [Johannesburg](city)
-    - [Nairobi](city)
-    - [Seul](city)
-    - [Bangkok](city)
-    - [Kuala Lumpur](city)
-    - [Giacarta](city)
-    - [Mumbai](city)
-    - [Delhi](city)
-    - [Bangalore](city)
-    - [Melbourne](city)
-    - [Sydney](city)
-    - [Auckland](city)
-    - [Lisbona](city)
-    - [Barcellona](city)
-    - [Amsterdam](city)
-    - [Bruxelles](city)
-    - [Vienna](city)
-    - [Praga](city)
-    - [Varsavia](city)
-    - [Copenaghen](city)
-    - [Stoccolma](city)
-    - [Oslo](city)
-    - [Helsinki](city)
-    - [Zurigo](city)
-    - [Ginevra](city)
-    - [Monaco](city)
-    - [Francoforte](city)
-    - [Atene](city)
+    - Dammi il meteo [oggi](date) a [Roma](city)
+    - Che tempo fa [domani](date) a [Milano](city)?
+    - Vorrei sapere il meteo [dopodomani](date) per [Miami](city)
+    - Qual è il meteo [stasera](date) a [Tokyo](city)
+    - [Barcellona](city) [mattina](date)
+
+- lookup: city
+  examples: |
+    !include lookups/city.txt
+
+- lookup: date
+  examples: |
+    - oggi
+    - domani
+    - dopodomani
+    - stasera
+    - mattina
+    - pomeriggio
+    - sera
+    - notte

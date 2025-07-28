@@ -8,6 +8,7 @@ intents:
 
 entities:
   - city
+  - date
 
 slots:
   city:
@@ -15,11 +16,23 @@ slots:
     mappings:
       - type: from_entity
         entity: city
+  date:
+    type: text
+    mappings:
+      - type: from_entity
+        entity: date
+      - type: from_intent
+        intent: chiedi_meteo
+        value: "oggi"
+      - type: from_intent
+        intent: dammi_meteo
+        value: "oggi"
 
 forms:
   weather_form:
     required_slots:
       - city
+      - date
 
 responses:
   utter_start:
@@ -31,23 +44,27 @@ responses:
 
         ℹ️ Per scoprire tutte le funzionalità, digita il comando /help.
 
-
   utter_help:
     - text: |
         Puoi utilizzare uno dei seguenti comandi per interagire con me:
-        - **Vorrei cercare una ricetta**: per comporre la tua ricetta ti indicherò tipo di portata e numero di persone.  
-        - **Vorrei cercare una ricetta per nome**: per cercare una ricetta direttamente con il suo nome.  
-        - **Dimmi una ricetta casuale**: per chiedermi di mandarti una ricetta a mia scelta tra le tante che conosco.  
-        - **Vorrei creare un menu**: per chiedermi di creare un menu con un numero di portate a tua scelta.
+        - Vorrei cercare il meteo per [oggi](date) per Milano: per ottenere la previsione meteo odierna.
+        - Vorrei cercare il meteo per [domani](date) per Milano.
+        - Vorrei il meteo per [dopodomani](date) a Roma.
+        - **Vorrei cercare una ricetta per nome**: per trovare una ricetta specifica.
+        - **Dimmi una ricetta casuale**: per ricevere una ricetta a sorpresa.
+        - **Vorrei creare un menu**: per comporre un menu personalizzato.
 
   utter_chiedi_meteo:
-    - text: "Certo, per quale città?"
+    - text: "Certo, per quale città e per quando?"
 
   utter_ask_weather_form_city:
     - text: "In quale città desideri sapere il meteo?"
 
+  utter_ask_weather_form_date:
+    - text: "Per quale giorno o fascia oraria?"
+
   utter_submit_weather_form:
-    - text: "Perfetto, sto cercando il meteo per {city}…"
+    - text: "Perfetto, sto cercando il meteo per {date} a {city}…"
 
 actions:
   - action_get_weather

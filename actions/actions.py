@@ -1,10 +1,19 @@
 from typing import Any, Text, Dict, List
 import requests
+from datetime import datetime, timezone, timedelta
 from rasa_sdk import Action, Tracker
 from rasa_sdk.executor import CollectingDispatcher
 from rasa_sdk import FormValidationAction
 from rasa_sdk.types import DomainDict
-from rasa_sdk.events import SessionStarted, ActionExecuted
+from datetime import datetime, timedelta, timezone
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
+if not API_KEY:
+    raise RuntimeError("Missing OPENWEATHER_API_KEY environment variable")
 
 
 class ActionGetWeather(Action):
@@ -18,96 +27,179 @@ class ActionGetWeather(Action):
         tracker: Tracker,
         domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
-        city_slot = next(tracker.get_latest_entity_values("city"), None)
-        city = tracker.get_slot("city") or city_slot
+        city = tracker.get_slot("city")
+        date_slot = tracker.get_slot("date") or "oggi"
 
         if not city:
             dispatcher.utter_message(text="Per favore, indicami una città.")
             return []
-        
+
+        if date_slot.lower() in ["oggi", "adesso", "ora"]:
+            return self._send_current_weather(dispatcher, city)
+        else:
+            return self._send_forecast(dispatcher, city, date_slot)
+
+    def _send_current_weather(
+        self, dispatcher: CollectingDispatcher, city: str
+    ) -> List[Dict[Text, Any]]:
         weather_data = self.get_weather(city)
-
-        if weather_data is None:
-            dispatcher.utter_message(text="Mi dispiace, c'è stato un problema di connessione con il servizio meteo. Riprova più tardi.")
+        if not weather_data:
+            dispatcher.utter_message(text="Problema di connessione con il servizio meteo. Riprova più tardi.")
             return []
-
         cod = weather_data.get("cod")
+        if str(cod) == "404":
+            dispatcher.utter_message(text=f"Mi dispiace, non ho trovato la città '{city}'.")
+            return []
         if str(cod) != "200":
-            error_msg = weather_data.get("message", "Città non trovata.")
-            dispatcher.utter_message(text=f"Errore: {error_msg.capitalize()}.")
+            msg = weather_data.get("message", "Errore sconosciuto").capitalize()
+            dispatcher.utter_message(text=f"Errore meteo: {msg}.")
             return []
 
-        weather_list = weather_data.get("weather", [])
-        if len(weather_list) == 0:
-            dispatcher.utter_message(text="Non sono riuscito a recuperare la descrizione del meteo.")
-            return []
+        desc, temp, feels_like, humidity, pressure, wind_speed, _ = self._extract_current_core(weather_data)
+        visibility = self._extract_visibility(weather_data)
+        clouds = weather_data.get("clouds", {}).get("all", "N/D")
+        sunrise, sunset = self._extract_sun_times(weather_data)
+        uvi_text = self._extract_uv(weather_data)
 
-        desc = weather_list[0].get("description", "N/D")
-        main_data = weather_data.get("main", {})
-        temp = main_data.get("temp", "N/D")
-        feels_like = main_data.get("feels_like", "N/D")
-        humidity = main_data.get("humidity", "N/D")
-        pressure = main_data.get("pressure", "N/D")
-
-        wind_data = weather_data.get("wind", {})
-        wind_speed = wind_data.get("speed", "N/D")
-        wind_deg = wind_data.get("deg", "—") 
-        
-        emoji_desc = self.emoji_per_desc(desc)
-        emoji_temp = "🌡️"
-        emoji_humidity = "💧"
-        emoji_pressure = "🧭"
-        emoji_wind = "🌬️ "
-
-        weather_text = (
-            f"Qui di seguito i dati meteo correnti per {city}:\n"
-            f"  • Descrizione: {emoji_desc} {desc}\n"
-            f"  • Temperatura: {emoji_temp} {temp} °C (percepita: {feels_like} °C)\n"
-            f"  • Umidità: {emoji_humidity} {humidity} %\n"
-            f"  • Pressione: {emoji_pressure} {pressure} hPa\n"
-            f"  • Vento: {emoji_wind} {wind_speed} m/s (direzione {wind_deg}°)\n"
-            f"Vuoi sapere il meteo per un’altra città?"
-        )
-
-        dispatcher.utter_message(text=weather_text)
+        today_str = datetime.now().strftime("%d/%m/%Y")
+        lines = [
+            f"Dati meteo per {city} ({today_str}):",
+            f"• {self.emoji_per_desc(desc)}Descrizione: {desc}",
+            f"• 🌡️ Temperatura: {temp}°C (percepita {feels_like}°C)",
+            f"• 💧 Umidità: {humidity}%",
+            f"• 🧭 Pressione: {pressure} hPa",
+            f"• 👁️ Visibilità: {visibility}",
+            f"• ☁️ Nuvolosità: {clouds}%",
+            f"• 🌅 Alba: {sunrise}",
+            f"• 🌇 Tramonto: {sunset}"
+        ]
+        dispatcher.utter_message(text="\n".join(lines))
         return []
+    
+    def _send_forecast(
+        self, dispatcher: CollectingDispatcher, city: str, date_slot: str
+    ) -> List[Dict[Text, Any]]:
+        now_local = datetime.now()
+        today = now_local.date()
+        slot = date_slot.lower()
+        offset = {"domani": 1, "dopodomani": 2}.get(slot, 0)
+        target_date = today + timedelta(days=offset)
+
+        forecast_data = self.get_forecast(city)
+        entries = forecast_data.get("list", [])
+        if not entries:
+            dispatcher.utter_message(text="Non ci sono dati di previsione disponibili.")
+            return []
+
+        tz_offset = forecast_data["city"].get("timezone", 0) 
+
+        daily_entries = []
+        for entry in entries:
+            ts = entry.get("dt")
+            if ts is None:
+                continue
+            dt_utc = datetime.fromtimestamp(ts, timezone.utc)
+            dt_local = dt_utc + timedelta(seconds=tz_offset)
+            if dt_local.date() == target_date:
+                daily_entries.append((dt_local, entry))
+
+        if not daily_entries:
+            dispatcher.utter_message(text=f"Non ho trovato previsioni per {slot}.")
+            return []
+
+        daily_entries.sort(key=lambda x: x[0])
+
+        lines = [f"Previsioni per {slot.capitalize()} ({target_date.strftime('%d/%m/%Y')}) a {city}:"]
+        for dt_local, entry in daily_entries:
+            time_str = dt_local.strftime("%H:%M")
+            weather = entry.get("weather", [{}])[0]
+            desc = weather.get("description", "N/D")
+            main = entry.get("main", {})
+            temp = main.get("temp", "N/D")
+            humidity = main.get("humidity", "N/D")
+            wind_speed = entry.get("wind", {}).get("speed", "N/D")
+            clouds = entry.get("clouds", {}).get("all", "N/D")
+            lines.append(
+                f"• {time_str} — {self.emoji_per_desc(desc)} {desc}, "
+                f"{temp}°C, umidità {humidity}%, vento {wind_speed} m/s, nuvolosità {clouds}%"
+            )
+
+        dispatcher.utter_message(text="\n".join(lines))
+        return []
+
 
     @staticmethod
     def get_weather(city: str) -> Dict[Text, Any]:
-        api_key = "47a19881a511d20f3a7d25483a7774a6"
-        base_url = "https://api.openweathermap.org/data/2.5/weather"
-        params = {
-            "q": city,
-            "units": "metric",
-            "lang": "it",
-            "appid": api_key
-        }
-
+        url = "https://api.openweathermap.org/data/2.5/weather"
         try:
-            response = requests.get(base_url, params=params, timeout=5)
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Errore durante la richiesta API: {e}")
-            return None
+            r = requests.get(
+                url,
+                params={"q": city, "units": "metric", "lang": "it", "appid": API_KEY},
+                timeout=5,
+            )
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.RequestException:
+            return {}
+
+    @staticmethod
+    def get_forecast(city: str) -> Dict[Text, Any]:
+        url = "https://api.openweathermap.org/data/2.5/forecast"
+        try:
+            r = requests.get(
+                url,
+                params={"q": city, "units": "metric", "lang": "it", "appid": API_KEY},
+                timeout=5,
+            )
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.RequestException:
+            return {}
+
+    @staticmethod
+    def _extract_current_core(data: Dict) -> Any:
+        desc = data["weather"][0].get("description", "N/D")
+        main = data.get("main", {})
+        wind = data.get("wind", {})
+        return (
+            desc,
+            main.get("temp", "N/D"),
+            main.get("feels_like", "N/D"),
+            main.get("humidity", "N/D"),
+            main.get("pressure", "N/D"),
+            wind.get("speed", "N/D"),
+            wind.get("deg", "—"),
+        )
+
+    @staticmethod
+    def _extract_visibility(data: Dict) -> Text:
+        vis = data.get("visibility")
+        return f"{vis/1000:.1f} km" if isinstance(vis, (int, float)) else "N/D"
+
+    @staticmethod
+    def _extract_sun_times(data: Dict) -> Any:
+        sys = data.get("sys", {})
+        tz = data.get("timezone", 0)
+        fmt = lambda ts: datetime.fromtimestamp(ts + tz, timezone.utc).strftime("%H:%M") if ts else "N/D"
+        return fmt(sys.get("sunrise")), fmt(sys.get("sunset"))
 
     @staticmethod
     def emoji_per_desc(desc: str) -> Text:
-        desc_lower = desc.lower()
-        if "sole" in desc_lower or "sereno" in desc_lower:
-            return "☀️ "
-        if "nuvol" in desc_lower:
-            return "☁️ "
-        if "pioggia" in desc_lower or "rain" in desc_lower:
-            return "🌧️ "
-        if "neve" in desc_lower:
-            return "❄️ "
-        if "temporale" in desc_lower or "thunderstorm" in desc_lower:
-            return "⛈️ "
-        return "🌥️ "
-
+        d = desc.lower()
+        if "sole" in d or "sereno" in d:
+            return "☀️"
+        if "nuvol" in d:
+            return "☁️"
+        if "pioggia" in d or "rain" in d:
+            return "🌧️"
+        if "neve" in d:
+            return "❄️"
+        if "temporale" in d or "thunderstorm" in d:
+            return "⛈️"
+        return "🌥️"
 
 class ValidateWeatherForm(FormValidationAction):
+
     def name(self) -> Text:
         return "validate_weather_form"
 
@@ -118,21 +210,18 @@ class ValidateWeatherForm(FormValidationAction):
         tracker: Tracker,
         domain: DomainDict,
     ) -> Dict[Text, Any]:
-        API_KEY = "47a19881a511d20f3a7d25483a7774a6"
-        city_name = slot_value.strip()
-        url_geo = f"http://api.openweathermap.org/geo/1.0/direct?q={city_name}&limit=1&appid={API_KEY}"
-
+        city = slot_value.strip()
+        url = f"http://api.openweathermap.org/geo/1.0/direct?q={city}&limit=1&appid={API_KEY}"
         try:
-            response = requests.get(url_geo, timeout=5)
-            response.raise_for_status()
-            data = response.json()
-        except Exception as e:
-            dispatcher.utter_message(text="Non riesco a contattare il servizio meteo al momento, riprovi più tardi.")
+            r = requests.get(url, timeout=5)
+            r.raise_for_status()
+            data = r.json()
+        except requests.exceptions.RequestException:
+            dispatcher.utter_message(text="Servizio meteo non disponibile. Riprova più tardi.")
             return {"city": None}
 
         if not data:
-            dispatcher.utter_message(response="utter_invalid_city", city=city_name)
+            dispatcher.utter_message(response="utter_invalid_city", city=city)
             return {"city": None}
 
-        return {"city": city_name}
-    
+        return {"city": city}
