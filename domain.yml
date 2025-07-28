@@ -39,20 +39,19 @@ responses:
     - text: |
         👋 Ciao! Sono MeteoAssistantBot, il tuo assistente meteo personale.   
         Sono qui per fornirti previsioni precise e aggiornate in pochi secondi! 🌦️ 
-        
-        Come posso aiutarti oggi? ☀️🌧️🌨️
 
         ℹ️ Per scoprire tutte le funzionalità, digita il comando /help.
 
   utter_help:
     - text: |
-        Puoi utilizzare uno dei seguenti comandi per interagire con me:
-        - Vorrei cercare il meteo per [oggi](date) per Milano: per ottenere la previsione meteo odierna.
-        - Vorrei cercare il meteo per [domani](date) per Milano.
-        - Vorrei il meteo per [dopodomani](date) a Roma.
-        - **Vorrei cercare una ricetta per nome**: per trovare una ricetta specifica.
-        - **Dimmi una ricetta casuale**: per ricevere una ricetta a sorpresa.
-        - **Vorrei creare un menu**: per comporre un menu personalizzato.
+        ☁️ Puoi chiedermi informazioni sul meteo con frasi come:
+
+        • Com'è il tempo a Milano?
+        • Vorrei cercare il meteo per domani a Milano.
+        • Mi puoi dire che tempo fa dopodomani a Milano?
+        • Dimmi la situazione meteo lunedì a Milano.
+
+        Puoi sostituire "Milano" con qualsiasi altra città!
 
   utter_chiedi_meteo:
     - text: "Certo, per quale città e per quando?"
