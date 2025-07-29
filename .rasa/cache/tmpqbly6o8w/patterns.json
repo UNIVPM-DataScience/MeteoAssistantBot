@@ -1,0 +1,10 @@
+[
+  {
+    "name": "date",
+    "pattern": "(\\boggi\\b|\\bdomani\\b|\\bdopodomani\\b|\\blunedì\\b|\\bmartedì\\b|\\bmercoledì\\b|\\bgiovedì\\b|\\bvenerdì\\b|\\bsabato\\b|\\bdomenica\\b|\\bmattina\\b|\\bpomeriggio\\b|\\bsera\\b|\\bnotte\\b)"
+  },
+  {
+    "name": "activity",
+    "pattern": "(\\bcorsa\\b|\\bcorrere\\b|\\battività\\ all’aperto\\b|\\bpicnic\\b|\\bsport\\b|\\bbicicletta\\b|\\bciclismo\\b|\\bpasseggiata\\b|\\btrekking\\b|\\bnuoto\\b|\\byoga\\b|\\bescursione\\b)"
+  }
+]

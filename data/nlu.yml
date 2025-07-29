@@ -52,10 +52,12 @@ nlu:
 
 - intent: ask_activity_advice
   examples: |
-    - È una buona giornata per correre a [Roma](city)?
-    - Che attività all’aperto posso fare oggi a [Roma](city)?
-    - Posso fare un picnic domani a [Torino](city)?
-    - Quale sport praticare questo pomeriggio?
+    - È una buona giornata per [correre](activity) a [Roma](city)?
+    - Che [attività all’aperto](activity) posso fare [oggi](date) a [Roma](city)?
+    - Posso fare un [picnic](activity) [domani](date) a [Torino](city)?
+    - Quale [sport](activity) praticare questo [pomeriggio](date)?
+    - Mi consigli una [passeggiata](activity) [sabato](date) a [Firenze](city)?
+    - Vorrei fare un [ciclismo](activity) [lunedì](date) a [Milano](city)
 
 - lookup: city
   examples: |
@@ -77,3 +79,18 @@ nlu:
     - pomeriggio
     - sera
     - notte
+
+- lookup: activity
+  examples: |
+    - corsa
+    - correre
+    - attività all’aperto
+    - picnic
+    - sport
+    - bicicletta
+    - ciclismo
+    - passeggiata
+    - trekking
+    - nuoto
+    - yoga
+    - escursione

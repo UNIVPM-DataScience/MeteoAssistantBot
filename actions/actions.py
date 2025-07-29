@@ -2,15 +2,13 @@ from typing import Any, Text, Dict, List, Optional
 import os
 import logging
 import requests
-import pandas as pd
-import matplotlib.pyplot as plt
-import tempfile
-import math
 from datetime import datetime, timezone, timedelta
 from rasa_sdk import Action, Tracker, FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
 from rasa_sdk.types import DomainDict
 from dotenv import load_dotenv
+from rasa_sdk.events import SlotSet
+from collections import Counter
 
 # Load environment variables
 load_dotenv()
@@ -203,46 +201,7 @@ class ValidateWeatherForm(FormValidationAction):
         if resp.status_code!=200 or not resp.json(): dispatcher.utter_message(response='utter_invalid_city',city=slot_value); return {'city':None}
         return {'city':slot_value}
 
-
-class ActionActivityAdvice(Action):
-
-    def __init__(self) -> None:
-        self.client = OpenWeatherClient(API_KEY)
-
-    def name(self) -> Text:
-        return "action_activity_advice"
-
-    def run(self, dispatcher: CollectingDispatcher,
-            tracker: Tracker, domain: Dict[Text, Any]) -> List[Dict]:
-        city = tracker.get_slot("city")
-        if not city:
-            dispatcher.utter_message(text="Per favore, indicami una città.")
-            return []
-
-        data = self.client.get_current(city)
-        if not data:
-            dispatcher.utter_message(text="Servizio meteo non disponibile.")
-            return []
-
-        temp       = data["main"].get("temp", 0)
-        desc       = data["weather"][0]["description"]
-        rain       = "pioggia" in desc.lower()
-        wind_speed = data["wind"].get("speed", 0)
-
-        # Semplice logica esempio
-        if not rain and 10 <= temp <= 25 and wind_speed < 5:
-            msg = f"Bel giorno per un’attività all’aperto a {city}: {desc}, {temp:.1f}°C, vento debole."
-        elif rain:
-            msg = f"Potrebbe piovere a {city}, meglio un’attività al chiuso."
-        else:
-            msg = f"{desc.capitalize()} a {city} e {temp:.1f}°C: valuta un’uscita breve o un'attività indoor."
-
-        dispatcher.utter_message(text=msg)
-        return []
-
-
 class ActionClothingAdvice(Action):
-    """Advice on clothing based on average daily weather and prevalent conditions."""
 
     def __init__(self) -> None:
         self.client = OpenWeatherClient(API_KEY)
@@ -369,3 +328,104 @@ class ActionClothingAdvice(Action):
         # Frase introduttiva + elenco
         return f"Ti consiglio di indossare: \n{elenco}"
 
+class ActionActivityAdvice(Action):
+
+    def __init__(self) -> None:
+        self.client = OpenWeatherClient(API_KEY)
+
+    def name(self) -> Text:
+        return "action_activity_advice"
+
+    def run(
+        self, dispatcher: CollectingDispatcher,
+        tracker: Tracker, domain: Dict[Text, Any]
+    ) -> List[Dict[Text, Any]]:
+        # Estrai city e date come prima
+        city      = tracker.get_slot("city")
+        date_slot = tracker.get_slot("date") or "oggi"
+
+        # Proviamo a estrarre l'entità activity anche se slot non è mappato
+        activity  = tracker.get_slot("activity")
+        if not activity:
+            activity = next(tracker.get_latest_entity_values("activity"), None)
+
+        # Se ancora manca activity, chiedi all'utente
+        if not city:
+            dispatcher.utter_message(text="Per favore, indicami una città.")
+            return []
+        if not activity:
+            dispatcher.utter_message(text="Quale attività vorresti fare?")
+            return []
+
+        # Se l'entity è stata trovata, possiamo settare lo slot per eventuali futuri turni
+        events: List[SlotSet] = [SlotSet("activity", activity)]
+
+        slot_l = date_slot.lower()
+        # Prepara i dati meteorologici
+        if slot_l in ["oggi", "adesso", "ora"]:
+            data  = self.client.get_current(city)
+            label = f"Oggi a {city}"
+        else:
+            # Ottieni forecast come in precedenza...
+            fdata = self.client.get_forecast(city)
+            if not fdata or not fdata.get("list"):
+                dispatcher.utter_message(text=f"Non ho previsioni per {date_slot}.")
+                return events
+            today = datetime.now().date()
+            if slot_l in _WEEKDAY_LOOKUP:
+                wd_today  = today.weekday()
+                wd_target = _WEEKDAY_LOOKUP[slot_l]
+                delta     = (wd_target - wd_today + 7) % 7 or 7
+                target    = today + timedelta(days=delta)
+            else:
+                target = today + timedelta(days={"domani":1,"dopodomani":2}.get(slot_l,0))
+            tz = fdata["city"].get("timezone", 0)
+            candidate = None
+            for e in fdata["list"]:
+                dt_loc = datetime.fromtimestamp(e["dt"], timezone.utc) + timedelta(seconds=tz)
+                if dt_loc.date() == target:
+                    candidate = e
+                    break
+            if not candidate:
+                dispatcher.utter_message(text=f"Non ho previsioni utili per {date_slot}.")
+                return events
+            data  = {
+                "weather": candidate.get("weather", []),
+                "main":    candidate.get("main", {}),
+                "wind":    candidate.get("wind", {})
+            }
+            label = f"Previsioni per {date_slot} a {city}"
+
+        # Estrai parametri
+        temp       = data["main"].get("temp", 0.0)
+        desc       = data["weather"][0].get("description", "")
+        rain       = "pioggia" in desc.lower() or "rain" in desc.lower()
+        wind_speed = data["wind"].get("speed", 0.0)
+
+        # Logica di yes/no sull'attività
+        if rain:
+            msg = (
+                f"{label}: sembra piovere ({desc}), quindi non è consigliato fare "
+                f"{activity}. Meglio un’attività al coperto."
+            )
+        elif 10 <= temp <= 25 and wind_speed < 5:
+            msg = (
+                f"{label}: condizioni ottimali per {activity}! "
+                f"{desc}, {temp:.1f}°C e vento leggero ({wind_speed:.1f} m/s)."
+            )
+        else:
+            reasons = []
+            if temp < 10:
+                reasons.append("fa freddo")
+            elif temp > 30:
+                reasons.append("fa molto caldo")
+            if wind_speed >= 5:
+                reasons.append("c'è vento")
+            reason_text = " e ".join(reasons) if reasons else desc
+            msg = (
+                f"{label}: {reason_text}, non è l’ideale per {activity}. "
+                f"Potresti considerare un’alternativa."
+            )
+
+        dispatcher.utter_message(text=msg)
+        return events

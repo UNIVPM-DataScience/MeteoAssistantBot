@@ -11,6 +11,7 @@ intents:
 entities:
   - city
   - date
+  - activity    
 
 slots:
   city:
@@ -29,13 +30,22 @@ slots:
       - type: from_intent
         intent: dammi_meteo
         value: "oggi"
-
+  activity:       
+    type: text
+    mappings:
+      - type: from_entity
+        entity: activity
 forms:
   weather_form:
     required_slots:
       - city
       - date
 
+activity:        
+  type: text
+  mappings:
+    - type: from_entity
+      entity: activity
 responses:
   utter_start:
     - text: |
@@ -46,12 +56,10 @@ responses:
 
   utter_help:
     - text: |
-        ☁️ Puoi chiedermi informazioni sul meteo con frasi come:
-
+        ☁️ Puoi chiedermi informazioni sul meteo, consigli di abbigliamento o attività:
         • Com'è il tempo a Milano?
-        • Vorrei cercare il meteo per domani a Milano.
-        • Mi puoi dire che tempo fa dopodomani a Milano?
-        • Dimmi la situazione meteo lunedì a Milano.
+        • Cosa indossare lunedì a Roma?
+        • È un buon giorno per correre a Torino?
 
         Puoi sostituire "Milano" con qualsiasi altra città!
 
