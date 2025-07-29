@@ -23,6 +23,8 @@ _DAYS_IT = [
     "Giovedì", "Venerdì", "Sabato", "Domenica"
 ]
 
+_WEEKDAY_LOOKUP = {d.lower(): idx for idx, d in enumerate(_DAYS_IT)}
+
 def render_forecast_table(hourly_data: List[Dict[str, Any]]) -> str:
     
     df = pd.DataFrame(hourly_data)
@@ -138,36 +140,60 @@ class ActionGetWeather(Action):
         return []
 
     def _handle_forecast(
-        self, dispatcher: CollectingDispatcher, city: str, date_slot: str, data: Dict
+        self,
+        dispatcher: CollectingDispatcher,
+        city: str,
+        slot: str,
+        data: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        today   = datetime.now().date()
-        offset  = {"domani":1,"dopodomani":2}.get(date_slot.lower(),0)
-        target  = today + timedelta(days=offset)
-        tz      = data["city"].get("timezone",0)
+        today = datetime.now().date()
+        slot_l = slot.lower()
+        tz     = data["city"].get("timezone", 0)
 
+        # 1) Calcola la data target:
+        if slot_l in _WEEKDAY_LOOKUP:
+            wd_today  = today.weekday()
+            wd_target = _WEEKDAY_LOOKUP[slot_l]
+            # giorni da aggiungere fino al prossimo slot_l
+            delta_days = (wd_target - wd_today + 7) % 7 or 7
+            target = today + timedelta(days=delta_days)
+        else:
+            # domani / dopodomani
+            offset_map = {"domani": 1, "dopodomani": 2}
+            target     = today + timedelta(days=offset_map.get(slot_l, 0))
+
+        # 2) Filtro delle entry
         daily_entries = []
-        for entry in data["list"]:
-            dt_utc   = datetime.fromtimestamp(entry["dt"], timezone.utc)
+        for e in data.get("list", []):
+            dt_utc   = datetime.fromtimestamp(e["dt"], timezone.utc)
             dt_local = dt_utc + timedelta(seconds=tz)
             if dt_local.date() == target:
-                daily_entries.append((dt_local, entry))
+                daily_entries.append((dt_local, e))
         daily_entries.sort(key=lambda x: x[0])
 
-        for dt_local, entry in daily_entries:
-            day_name   = _DAYS_IT[dt_local.weekday()]
-            date_time  = dt_local.strftime("%d/%m/%Y %H:%M")
-            main       = entry.get("main", {})
-            wind       = entry.get("wind", {})
-            sys        = {}
-            
-            lines = [
-                f"🌦️ Meteo per {city} – {day_name} {date_time}",
-                f"• 🌡️ Temperatura: {main.get('temp','N/D')}°C",
-                f"• ☔ Condizioni: {entry['weather'][0].get('description','N/D')} {self.emoji(entry['weather'][0]['description'])}",
-                f"• 💧 Umidità: {main.get('humidity','N/D')} %",
-                f"• 🌬️ Vento: {wind.get('speed','N/D')} m/s, {wind.get('deg','—')}°,nuvolosità: {entry.get('clouds', {}).get('all','N/D')}%",
-            ]
+        if not daily_entries:
+            dispatcher.utter_message(text=f"Non ho trovato previsioni per {slot.capitalize()}.")
+            return []
 
+        # 3) Header con giorno della settimana e data target
+        day_name       = _DAYS_IT[target.weekday()]
+        formatted_date = target.strftime("%d/%m/%Y")
+        header = f"⛅ **Previsioni per {slot.capitalize()} – {day_name} {formatted_date}** a {city}:"
+        dispatcher.utter_message(text=header)
+
+        # 4) Mini‑card per ogni orario
+        for dt_local, entry in daily_entries:
+            t     = dt_local.strftime("%H:%M")
+            w     = entry.get("weather",[{}])[0]
+            desc  = w.get("description","N/D")
+            emoji = self.emoji(desc)
+            main  = entry.get("main",{})
+            wind  = entry.get("wind",{})
+            lines = [
+                f"**{t}** — {emoji} {desc}",
+                f"_Temp:_ {main.get('temp','N/D')}°C | _Umid:_ {main.get('humidity','N/D')}% | "
+                f"_Vento:_ {wind.get('speed','N/D')} m/s ({wind.get('deg','—')}°) | "
+            ]
             dispatcher.utter_message(text="\n".join(lines))
 
         return []

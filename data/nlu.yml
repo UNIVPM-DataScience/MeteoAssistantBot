@@ -30,6 +30,9 @@ nlu:
     - Vorrei sapere il meteo [dopodomani](date) per [Miami](city)
     - Qual è il meteo [stasera](date) a [Tokyo](city)
     - [Barcellona](city) [mattina](date)
+    - Voglio il meteo per [lunedì](date) a [Venezia](city)
+    - Dammi le previsioni per [martedì](date) a [Napoli](city)
+    - Meteo per [mercoledì](date) a [Torino](city)
 
 - lookup: city
   examples: |
@@ -40,7 +43,13 @@ nlu:
     - oggi
     - domani
     - dopodomani
-    - stasera
+    - lunedì
+    - martedì
+    - mercoledì
+    - giovedì
+    - venerdì
+    - sabato
+    - domenica
     - mattina
     - pomeriggio
     - sera
