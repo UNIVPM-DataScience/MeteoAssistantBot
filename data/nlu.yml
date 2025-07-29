@@ -34,6 +34,29 @@ nlu:
     - Dammi le previsioni per [martedì](date) a [Napoli](city)
     - Meteo per [mercoledì](date) a [Torino](city)
 
+- intent: ask_clothing_advice
+  examples: |
+    # oggi
+    - Cosa mi conviene indossare [oggi](date) a [Roma](city)?
+    - Come mi consigli di uscire [oggi](date) a [Roma](city)?
+    - Qual è il giusto outfit [oggi](date) per [Milano](city)?
+    - Cosa mettere [oggi](date) a [Firenze](city) per uscire?
+    # domani / dopodomani
+    - Cosa mi consigli di portare [domani](date) a [Torino](city)?
+    - Che giacca devo prendere [dopodomani](date) a [Bologna](city)?
+    # giorno della settimana
+    - Cosa mi consigli di portare per [martedì](date) a [Napoli](city)?
+    - Quale capo di abbigliamento suggerisci per [giovedì](date) a [Venezia](city)?
+    - Che outfit andrà bene [sabato](date) a [Genova](city)?
+
+
+- intent: ask_activity_advice
+  examples: |
+    - È una buona giornata per correre a [Roma](city)?
+    - Che attività all’aperto posso fare oggi a [Roma](city)?
+    - Posso fare un picnic domani a [Torino](city)?
+    - Quale sport praticare questo pomeriggio?
+
 - lookup: city
   examples: |
     !include lookups/city.txt

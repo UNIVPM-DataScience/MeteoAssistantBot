@@ -31,3 +31,12 @@ rules:
     - action: utter_submit_weather_form
     - action: action_get_weather
 
+- rule: Consiglio abbigliamento
+  steps:
+  - intent: ask_clothing_advice
+  - action: action_clothing_advice
+
+- rule: Consiglio attività all’aperto
+  steps:
+  - intent: ask_activity_advice
+  - action: action_activity_advice

@@ -5,6 +5,8 @@ intents:
   - help
   - chiedi_meteo
   - dammi_meteo
+  - ask_clothing_advice    
+  - ask_activity_advice    
 
 entities:
   - city
@@ -68,6 +70,8 @@ responses:
 actions:
   - action_get_weather
   - validate_weather_form
+  - action_clothing_advice  
+  - action_activity_advice
 
 session_config:
   session_expiration_time: 60
