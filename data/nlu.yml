@@ -1,85 +1,504 @@
 version: "3.1"
 
 nlu:
-- intent: start
-  examples: |
-    - /start
-    - start
-    - /start@TuonomeBot
 
-- intent: help
-  examples: |
-    - /help
-    - help
-    - /help@TuonomeBot
-
-- intent: chiedi_meteo
-  examples: |
-    - com'è il tempo?
-    - che tempo fa?
-    - mi puoi dire che tempo fa?
-    - qual è la situazione meteo?
-    - raccontami il meteo
-    - com’è il meteo oggi?
-    - puoi parlarmi del meteo
-
-- intent: dammi_meteo
-  examples: |
-    - Dammi il meteo [oggi](date) a [Roma](city)
-    - Che tempo fa [domani](date) a [Milano](city)?
-    - Vorrei sapere il meteo [dopodomani](date) per [Miami](city)
-    - Qual è il meteo [stasera](date) a [Tokyo](city)
-    - [Barcellona](city) [mattina](date)
-    - Voglio il meteo per [lunedì](date) a [Venezia](city)
-    - Dammi le previsioni per [martedì](date) a [Napoli](city)
-    - Meteo per [mercoledì](date) a [Torino](city)
-
-- intent: ask_clothing_advice
-  examples: |
-    # oggi
-    - Cosa mi conviene indossare [oggi](date) a [Roma](city)?
-    - Come mi consigli di uscire [oggi](date) a [Roma](city)?
-    - Qual è il giusto outfit [oggi](date) per [Milano](city)?
-    - Cosa mettere [oggi](date) a [Firenze](city) per uscire?
-    # domani / dopodomani
-    - Cosa mi consigli di portare [domani](date) a [Torino](city)?
-    - Che giacca devo prendere [dopodomani](date) a [Bologna](city)?
-    # giorno della settimana
-    - Cosa mi consigli di portare per [martedì](date) a [Napoli](city)?
-    - Quale capo di abbigliamento suggerisci per [giovedì](date) a [Venezia](city)?
-    - Che outfit andrà bene [sabato](date) a [Genova](city)?
+  - intent: start
+    examples: |
+      - /start
+      - start
+      - /start@TuonomeBot
 
 
-- intent: ask_activity_advice
-  examples: |
-    - È una buona giornata per [correre](activity) a [Roma](city)?
-    - Che [attività all’aperto](activity) posso fare [oggi](date) a [Roma](city)?
-    - Posso fare un [picnic](activity) [domani](date) a [Torino](city)?
-    - Quale [sport](activity) praticare questo [pomeriggio](date)?
-    - Mi consigli una [passeggiata](activity) [sabato](date) a [Firenze](city)?
-    - Vorrei fare un [ciclismo](activity) [lunedì](date) a [Milano](city)
+  - intent: help
+    examples: |
+      - /help
+      - help
+      - /help@TuonomeBot
 
-- lookup: city
-  examples: |
-    !include lookups/city.txt
 
-- lookup: city
-  examples: |
-    !include lookups/activity.txt
+  - intent: chiedi_meteo
+    examples: |
+      - com'è il tempo?
+      - che tempo fa?
+      - mi puoi dire che tempo fa?
+      - qual è la situazione meteo?
+      - raccontami il meteo
+      - com’è il meteo oggi?
+      - puoi parlarmi del meteo
 
-- lookup: date
-  examples: |
-    - oggi
-    - domani
-    - dopodomani
-    - lunedì
-    - martedì
-    - mercoledì
-    - giovedì
-    - venerdì
-    - sabato
-    - domenica
-    - mattina
-    - pomeriggio
-    - sera
-    - notte
+
+  - intent: dammi_meteo
+    examples: |
+      - Dammi il meteo [oggi](date) a [Roma](city)
+      - Che tempo fa [domani](date) a [Milano](city)?
+      - Vorrei sapere il meteo [dopodomani](date) per [Miami](city)
+      - Qual è il meteo [stasera](date) a [Parigi](city)
+      - [Barcellona](city) [mattina](date)
+      - Voglio il meteo per [lunedì](date) a [Venezia](city)
+      - Dammi le previsioni per [martedì](date) a [Napoli](city)
+      - Meteo per [mercoledì](date) a [Londra](city)
+
+
+  - intent: ask_clothing_advice
+    examples: |
+      - Cosa mi conviene indossare [oggi](date) a [Roma](city)?
+      - Come mi consigli di uscire [oggi](date) a [Roma](city)?
+      - Qual è il giusto outfit [oggi](date) per [Milano](city)?
+      - Cosa mettere [oggi](date) a [Firenze](city) per uscire?
+      - Cosa mi consigli di portare [domani](date) a [Torino](city)?
+      - Che giacca devo prendere [dopodomani](date) a [Bologna](city)?
+      - Cosa mi consigli di portare per [martedì](date) a [Napoli](city)?
+      - Quale capo di abbigliamento suggerisci per [giovedì](date) a [Venezia](city)?
+      - Che outfit andrà bene [sabato](date) a [Genova](city)?
+
+
+  - intent: ask_activity_advice
+    examples: |
+      - È una buona giornata per [correre](activity) a [Roma](city)?
+      - Che [attività all’aperto](activity) posso fare [oggi](date) a [Roma](city)?
+      - Posso fare un [picnic](activity) [domani](date) a [Torino](city)?
+      - Quale [sport](activity) praticare questo [pomeriggio](date)?
+      - Mi consigli una [passeggiata](activity) [sabato](date) a [Firenze](city)?
+      - Vorrei fare un [ciclismo](activity) [lunedì](date) a [Milano](city)
+
+
+  - lookup: city
+    examples: |
+      - Il Cairo
+      - Lagos
+      - Kinshasa
+      - Johannesburg
+      - Nairobi
+      - Dar es Salaam
+      - Alessandria
+      - Khartoum
+      - Casablanca
+      - Durban
+      - Città del Capo
+      - Algeri
+      - Tunisi
+      - Accra
+      - Addis Abeba
+      - Kampala
+      - Dakar
+      - Abidjan
+      - Lusaka
+      - Harare
+      - Luanda
+      - Tripoli
+      - Kigali
+      - Bamako
+      - Conakry
+      - Freetown
+      - Bujumbura
+      - Maputo
+      - Antananarivo
+      - Monrovia
+      - Tokyo
+      - Delhi
+      - Shanghai
+      - Pechino
+      - Mumbai
+      - Karachi
+      - Dacca
+      - Istanbul
+      - Giacarta
+      - Canton
+      - Shenzhen
+      - Seul
+      - Manila
+      - Bangalore
+      - Chongqing
+      - Tianjin
+      - Chengdu
+      - Nanchino
+      - Wuhan
+      - Suzhou
+      - Xi’an
+      - Hong Kong
+      - Ahmedabad
+      - Kuala Lumpur
+      - Ho Chi Minh
+      - Hangzhou
+      - Shenyang
+      - Harbin
+      - Riad
+      - Baghdad
+      - Singapore
+      - Surat
+      - Dongguan
+      - Changsha
+      - Jinan
+      - Kunming
+      - Dalian
+      - Zhengzhou
+      - Nanning
+      - Shijiazhuang
+      - Urumqi
+      - Fukuoka
+      - Quanzhou
+      - Xiamen
+      - Hefei
+      - Nanchang
+      - Shantou
+      - Wuxi
+      - Jinhua
+      - Changchun
+      - Taichung
+      - Calcutta
+      - Tashkent
+      - Kabul
+      - Lahore
+      - Islamabad
+      - Erevan
+      - Baku
+      - Ashgabat
+      - Tbilisi
+      - Yogyakarta
+      - Surabaya
+      - Medan
+      - Bandung
+      - Semarang
+      - Makassar
+      - Bekasi
+      - Macao
+      - Kathmandu
+      - Yangon
+      - Londra
+      - Berlino
+      - Madrid
+      - Roma
+      - Parigi
+      - Atene
+      - Amsterdam
+      - Bruxelles
+      - Vienna
+      - Praga
+      - Budapest
+      - Varsavia
+      - Bucarest
+      - Stoccolma
+      - Copenaghen
+      - Helsinki
+      - Oslo
+      - Dublino
+      - Lisbona
+      - Zurigo
+      - Ginevra
+      - Milano
+      - Monaco di Baviera
+      - Amburgo
+      - Francoforte
+      - Barcellona
+      - Valencia
+      - Siviglia
+      - Bilbao
+      - Porto
+      - Lione
+      - Marsiglia
+      - Nizza
+      - Tolosa
+      - Montpellier
+      - Lilla
+      - Nantes
+      - Strasburgo
+      - Bordeaux
+      - Rennes
+      - Grenoble
+      - Digione
+      - Rouen
+      - Clermont-Ferrand
+      - Caen
+      - Le Havre
+      - Reims
+      - Sofia
+      - Zagabria
+      - Lubiana
+      - Bratislava
+      - Vilnius
+      - Riga
+      - Tallinn
+      - Minsk
+      - Mosca
+      - San Pietroburgo
+      - Kiev
+      - Belgrado
+      - Sarajevo
+      - Podgorica
+      - Pristina
+      - Skopje
+      - Tirana
+      - La Valletta
+      - Reykjavik
+      - Lussemburgo
+      - Edimburgo
+      - Manchester
+      - Birmingham
+      - New York
+      - Los Angeles
+      - Chicago
+      - Houston
+      - Phoenix
+      - Filadelfia
+      - San Antonio
+      - San Diego
+      - Dallas
+      - San Jose
+      - Austin
+      - Jacksonville
+      - San Francisco
+      - Columbus
+      - Fort Worth
+      - Indianapolis
+      - Charlotte
+      - Seattle
+      - Denver
+      - Washington
+      - Boston
+      - El Paso
+      - Nashville
+      - Detroit
+      - Oklahoma City
+      - Portland
+      - Las Vegas
+      - Baltimora
+      - Milwaukee
+      - Albuquerque
+      - Tucson
+      - Fresno
+      - Sacramento
+      - Kansas City
+      - Mesa
+      - Atlanta
+      - Omaha
+      - Colorado Springs
+      - Raleigh
+      - Miami
+      - Virginia Beach
+      - Oakland
+      - Minneapolis
+      - Tulsa
+      - Arlington
+      - New Orleans
+      - Wichita
+      - Tampa
+      - Honolulu
+      - Anaheim
+      - San Paolo
+      - Rio de Janeiro
+      - Buenos Aires
+      - Lima
+      - Bogotà
+      - Santiago
+      - Caracas
+      - Quito
+      - Medellín
+      - La Paz
+      - Montevideo
+      - Asunción
+      - Brasilia
+      - Salvador
+      - Fortaleza
+      - Belo Horizonte
+      - Manaus
+      - Recife
+      - Porto Alegre
+      - Curitiba
+      - Cali
+      - Maracaibo
+      - Barranquilla
+      - Cúcuta
+      - Santa Cruz de la Sierra
+      - Sucre
+      - Guayaquil
+      - Valparaíso
+      - Concepción
+      - Mendoza
+      - Córdoba
+      - Rosario
+      - Mar del Plata
+      - Campinas
+      - Cuiabá
+      - Belém
+      - Vitória
+      - Uberlândia
+      - Natal
+      - João Pessoa
+      - Sydney
+      - Melbourne
+      - Brisbane
+      - Perth
+      - Adelaide
+      - Auckland
+      - Wellington
+      - Christchurch
+      - Hobart
+      - Darwin
+      - Riad
+      - Gedda
+      - La Mecca
+      - Medina
+      - Dammam
+      - Dhahran
+      - Dubai
+      - Abu Dhabi
+      - Sharjah
+      - Doha
+      - Città del Kuwait
+      - Manama
+      - Mascate
+      - Beirut
+      - Amman
+      - Gerusalemme
+      - Tel Aviv
+      - Damasco
+      - Aleppo
+      - Sanaa
+      - Città del Messico
+      - Città di Guatemala
+      - Tegucigalpa
+      - San Salvador
+      - Managua
+      - San José
+      - Città di Panama
+      - Città di Belize
+      - L’Avana
+      - Santo Domingo
+      - Roma
+      - Milano
+      - Napoli
+      - Torino
+      - Palermo
+      - Genova
+      - Bologna
+      - Firenze
+      - Bari
+      - Catania
+      - Vienna
+      - Mosca
+      - San Pietroburgo
+      - Amsterdam
+      - Bruxelles
+      - Bucarest
+      - Varsavia
+      - Sofia
+
+  - lookup: date
+    examples: |
+      - oggi
+      - domani
+      - dopodomani
+      - lunedì
+      - martedì
+      - mercoledì
+      - giovedì
+      - venerdì
+      - sabato
+      - domenica
+      - mattina
+      - pomeriggio
+      - sera
+      - notte
+
+
+  - lookup: activity
+    examples: |
+      - corsa
+      - correre
+      - jogging
+      - camminata
+      - passeggiata
+      - trekking
+      - escursione
+      - alpinismo
+      - arrampicata
+      - bicicletta
+      - ciclismo
+      - mountain bike
+      - nuoto
+      - tuffi
+      - snorkeling
+      - immersioni
+      - surf
+      - windsurf
+      - kitesurf
+      - vela
+      - kayak
+      - canoa
+      - pesca
+      - sci
+      - snowboard
+      - slittino
+      - pattinaggio
+      - tennis
+      - padel
+      - squash
+      - ping pong
+      - calcio
+      - calcetto
+      - basket
+      - pallacanestro
+      - pallavolo
+      - rugby
+      - baseball
+      - softball
+      - golf
+      - equitazione
+      - arti marziali
+      - karate
+      - judo
+      - taekwondo
+      - boxe
+      - kickboxing
+      - pilates
+      - yoga
+      - meditazione
+      - stretching
+      - ginnastica
+      - palestra
+      - allenamento
+      - crossfit
+      - zumba
+      - danza
+      - ballo
+      - balli di gruppo
+      - ballo latino
+      - escursione
+      - nordic walking
+      - campeggio
+      - picnic
+      - attività all’aperto
+      - giardinaggio
+      - fotografia
+      - birdwatching
+      - osservazione delle stelle
+      - lettura
+      - scrittura
+      - pittura
+      - disegno
+      - modellismo
+      - fai da te
+      - bricolage
+      - cucina
+      - pasticceria
+      - videogiocare
+      - giochi da tavolo
+      - puzzle
+      - cinema
+      - teatro
+      - musica
+      - suonare uno strumento
+      - cantare
+      - podcast
+      - podcasting
+      - volontariato
+      - visite culturali
+      - musei
+      - mostre
+      - shopping
+      - visitare monumenti
+      - escursioni naturalistiche
+      - escursioni storiche
+      - geocaching
+      - esplorare
+

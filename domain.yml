@@ -19,6 +19,8 @@ slots:
     mappings:
       - type: from_entity
         entity: city
+  
+
   date:
     type: text
     mappings:
@@ -63,14 +65,9 @@ responses:
 
         Puoi sostituire "Milano" con qualsiasi altra città!
 
-  utter_chiedi_meteo:
-    - text: "Certo, per quale città e per quando?"
 
   utter_ask_weather_form_city:
-    - text: "In quale città desideri sapere il meteo?"
-
-  utter_ask_weather_form_date:
-    - text: "Per quale giorno o fascia oraria?"
+    - text: "Per quale città desideri conoscere il meteo?"
 
   utter_submit_weather_form:
     - text: "Perfetto, sto cercando il meteo per {date} a {city}…"

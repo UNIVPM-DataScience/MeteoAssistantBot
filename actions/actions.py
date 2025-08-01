@@ -10,23 +10,27 @@ from dotenv import load_dotenv
 from rasa_sdk.events import SlotSet
 from collections import Counter
 from typing import List
+import pandas as pd
 
-# Load environment variables
 load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY") or os.getenv("API_KEY")
 if not API_KEY:
     raise RuntimeError("Missing OPENWEATHER_API_KEY environment variable")
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
-# Italian weekdays mapping
 _DAYS_IT = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"]
-# Reverse lookup: name -> index
 _WEEKDAY_LOOKUP = {d.lower(): i for i, d in enumerate(_DAYS_IT)}
 
+CITIES_DF = pd.read_csv(
+    os.path.join(os.path.dirname(__file__), "data", "cities.csv"),
+    usecols=["city_ascii","country","population","lat","lng"],
+    dtype={"city_ascii": str, "country": str, "population": float, "lat": float, "lng": float}
+)
+
+CITIES_DF["city_key"] = CITIES_DF["city_ascii"].str.lower()
+
 class OpenWeatherClient:
-    """Client for OpenWeather APIs."""
     BASE_URL = "https://api.openweathermap.org/data/2.5"
 
     def __init__(self, api_key: str):
@@ -52,7 +56,6 @@ class OpenWeatherClient:
         return self._get("air_pollution", lat=lat, lon=lon)
 
 class ActionGetWeather(Action):
-    """Provides current weather, air quality, UV, clothing/activity advice and hourly forecast."""
 
     def __init__(self) -> None:
         self.client = OpenWeatherClient(API_KEY)
@@ -62,26 +65,37 @@ class ActionGetWeather(Action):
 
     def run(self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]) -> List[Dict[Text, Any]]:
         city      = tracker.get_slot("city")
+        # cerco la riga corrispondente (case-insensitive)
+        match = CITIES_DF[CITIES_DF["city_key"] == city.lower()]
+        if not match.empty:
+            info = match.iloc[0]
+            country    = info["country"]
+            population = f"{int(info['population']):,}".replace(",", ".")
+            lat, lon   = info["lat"], info["lng"]
+            intro = f"{city} ({country}, pop. {population} abitanti, lat {lat:.2f}, lon {lon:.2f})"
+        else:
+            intro = f"{city}:\n"
+
         date_slot = tracker.get_slot("date") or "oggi"
         if not city:
             dispatcher.utter_message(text="Per favore, indicami una città.")
             return []
         slot_l = date_slot.lower()
-        # current weather
+
         if slot_l in ["oggi","ora","adesso"]:
             data = self.client.get_current(city)
             if not data:
                 dispatcher.utter_message(text="Servizio meteo non disponibile.")
                 return []
-            return self._handle_current(dispatcher, city, data)
+            return self._handle_current(dispatcher, city, data, intro)
         else:
             data = self.client.get_forecast(city)
             if not data or not data.get("list"):
                 dispatcher.utter_message(text="Non sono disponibili previsioni per quella data.")
                 return []
-            return self._handle_forecast(dispatcher, city, date_slot, data)
+            return self._handle_forecast(dispatcher, city, date_slot, data, intro)
 
-    def _handle_current(self, dispatcher: CollectingDispatcher, city: str, data: Dict) -> List[Dict[Text, Any]]:
+    def _handle_current(self, dispatcher: CollectingDispatcher, city: str, data: Dict, intro) -> List[Dict[Text, Any]]:
         if str(data.get("cod")) == "404":
             dispatcher.utter_message(text=f"Città '{city}' non trovata.")
             return []
@@ -98,9 +112,8 @@ class ActionGetWeather(Action):
         day_nm = _DAYS_IT[now.weekday()]
         dt_str = now.strftime("%d/%m/%Y %H:%M")
 
-        # Costruisco il bollettino continuativo
         message = (
-            f"Ecco il bollettino meteorologico per oggi a {city}: \n"
+            f"Ecco il bollettino meteorologico per oggi a {intro}: \n"
             f"in questo momento registriamo {main.get('temp','N/D')} °C con sensazione termica di {main.get('feels_like','N/D')} °C "
             f"e condizioni di «{desc}» {self.emoji(desc)}. "
             f"L’umidità relativa è al {main.get('humidity','N/D')}% e la pressione barometrica si attesta a {main.get('pressure','N/D')} hPa. "
@@ -109,7 +122,6 @@ class ActionGetWeather(Action):
             f"L’alba è avvenuta alle {self._format_time(sys.get('sunrise'), data.get('timezone',0))} e il tramonto avverrà alle {self._format_time(sys.get('sunset'), data.get('timezone',0))}."
         )
 
-        # Qualità dell'aria, se disponibile
         lat = coord.get('lat'); lon = coord.get('lon')
         if lat and lon:
             air = self.client.get_air_pollution(lat, lon)
@@ -126,13 +138,13 @@ class ActionGetWeather(Action):
         dispatcher: CollectingDispatcher,
         city: str,
         slot: str,
-        data: Dict[Text, Any]
+        data: Dict[Text, Any],
+        intro
     ) -> List[Dict[Text, Any]]:
         today = datetime.now().date()
         slot_l = slot.lower()
         tz     = data["city"].get("timezone", 0)
 
-        # 1) Calcola la data target
         if slot_l in _WEEKDAY_LOOKUP:
             wd_today  = today.weekday()
             wd_target = _WEEKDAY_LOOKUP[slot_l]
@@ -141,8 +153,7 @@ class ActionGetWeather(Action):
         else:
             offset_map = {"domani": 1, "dopodomani": 2}
             target     = today + timedelta(days=offset_map.get(slot_l, 0))
-
-        # 2) Filtra le entry per il giorno target
+            
         entries = []
         for e in data.get("list", []):
             dt_utc   = datetime.fromtimestamp(e["dt"], timezone.utc)
@@ -155,13 +166,11 @@ class ActionGetWeather(Action):
             dispatcher.utter_message(text=f"Non ho trovato previsioni per {slot.capitalize()}.")
             return []
 
-        # 3) Raggruppa per fase della giornata
         morning   = [e for e in entries if e[0].hour < 12]
         afternoon = [e for e in entries if 12 <= e[0].hour < 18]
         evening   = [e for e in entries if e[0].hour >= 18]
 
         def summarize(group):
-            # prende la prima entry del gruppo
             dt_local, entry = group[0]
             w      = entry.get("weather", [{}])[0]
             desc   = w.get("description", "N/D")
@@ -171,15 +180,15 @@ class ActionGetWeather(Action):
             emoji  = self.emoji(desc)
             return desc, temp, hum, wind_v, emoji
 
-        # 4) Costruisci il bollettino
         day_name       = _DAYS_IT[target.weekday()]
         formatted_date = target.strftime("%d/%m/%Y")
-        parts = [f"Ecco le previsioni per {city} – {day_name} {formatted_date}."]
+        parts = [f"Ecco le previsioni per  {day_name} {formatted_date} a {intro} \n "]
+
         
         if morning:
             desc, temp, hum, wind_v, emoji = summarize(morning)
             parts.append(
-                f" La mattina si presenterà {desc} {emoji}, con temperature attorno ai {temp}°C, "
+                f"La mattina si presenterà {desc} {emoji}, con temperature attorno ai {temp}°C, "
                 f"umidità intorno al {hum}% e vento debole a {wind_v} m/s."
             )
         if afternoon:
@@ -243,13 +252,11 @@ class ActionClothingAdvice(Action):
             dispatcher.utter_message(text="Per favore, dimmi per quale città.")
             return []
 
-        # 1. Prendo sempre le previsioni a 5 giorni / 3h
         fdata = self.client.get_forecast(city)
         if not fdata or not fdata.get("list"):
             dispatcher.utter_message(text="Servizio meteo non disponibile.")
             return []
 
-        # 2. Calcolo la data target
         today = datetime.now().date()
         if date_slot in _WEEKDAY_LOOKUP:
             wd_today  = today.weekday()
@@ -260,7 +267,6 @@ class ActionClothingAdvice(Action):
             offset_map = {"oggi":0, "ora":0, "adesso":0, "domani":1, "dopodomani":2}
             target     = today + timedelta(days=offset_map.get(date_slot, 0))
 
-        # 3. Filtro le entry per il giorno target
         tz = fdata["city"].get("timezone", 0)
         entries = [
             e for e in fdata["list"]
@@ -271,14 +277,12 @@ class ActionClothingAdvice(Action):
             dispatcher.utter_message(text=f"Non ho previsioni utili per «{date_slot}».")
             return []
 
-        # 4. Definisco le fasce orarie
         fasce = {
             "Mattino":    (6, 12),
             "Pomeriggio": (12, 18),
             "Sera":       (18, 24),
         }
-
-        # 5. Raccolgo medie e descrizione prevalente per ciascuna fascia
+        
         segmenti: Dict[str, Dict[str, Any]] = {}
         for nome, (h1, h2) in fasce.items():
             seg = [
@@ -298,7 +302,6 @@ class ActionClothingAdvice(Action):
 
             segmenti[nome] = {"temp": avg_t, "vento": avg_w, "desc": main_desc}
 
-        # 6. Costruisco i paragrafi narrativi
         paragrafi: List[str] = []
         for periodo, s in segmenti.items():
             paragrafi.append(
@@ -310,11 +313,10 @@ class ActionClothingAdvice(Action):
                 )
             )
 
-        # 7. Invio il messaggio
         testo = f"Per la giornata di {date_slot} a {city}:\n\n" + "\n\n".join(paragrafi)
         dispatcher.utter_message(text=testo)
         return []
-
+        
     def _narrative_paragraph(
         self,
         periodo: str,
@@ -322,10 +324,7 @@ class ActionClothingAdvice(Action):
         temp: float,
         vento: float
     ) -> str:
-        """
-        Crea un paragrafo naturale e variato per mattino/pomeriggio/sera.
-        """
-        # Descrivo il vento
+        # --- 1. Descrizione del vento
         if vento > 8:
             vento_str = f"vento sostenuto a {vento:.1f} m/s"
         elif vento > 4:
@@ -333,46 +332,79 @@ class ActionClothingAdvice(Action):
         else:
             vento_str = "aria calma"
 
-        # Inizio comune
-        frase = ""
-        if periodo == "Mattino":
-            frase += (
-                f"Al mattino, con {desc} e circa {temp:.0f}°C e {vento_str}, "
-                "inizia la giornata con una T-shirt in cotone fresco e pantaloni corti, "
-                "accompagnati da sneakers traspiranti. "
-                "Non dimenticare occhiali da sole e un cappellino"
-            )
-            # idratazione anche al mattino se fa molto caldo
-            if temp >= 28:
-                frase += " e porta con te una bottiglia d’acqua"
-            frase += "."
+        # --- 2. Intestazione in base al periodo
+        period_map = {
+            "Mattino": "Al mattino",
+            "Pomeriggio": "A metà pomeriggio",
+            "Sera": "Verso sera"
+        }
+        intro = period_map.get(periodo, "Durante la giornata")
 
-        elif periodo == "Pomeriggio":
-            frase += (
-                f"A metà pomeriggio, con {desc} e circa {temp:.0f}°C e {vento_str}, "
-                "optare per un top in lino o tessuto tecnico e shorts leggeri è ideale; "
-                "tieni a portata di mano una borraccia d’acqua e cerca qualche momento d’ombra"
-            )
-            # aggiungo consiglio su bandana in caso di refolo
-            phrase_wind = vento > 4
-            if phrase_wind:
-                frase += ", e se senti un refolo, una bandana leggera può fare la differenza"
-            frase += "."
+        # --- 3. Outfit di base per fascia termica e periodo
+        # Struttura: {periodo: [(max_temp, testo), ...]}
+        outfit_rules = {
+            "Mattino": [
+                (10,   "indossa un cappotto caldo, un maglione in lana e pantaloni lunghi; non dimenticare guanti e sciarpa"),
+                (15,   "scegli un cardigan o una giacca in pile con pantaloni lunghi e scarpe chiuse"),
+                (20,   "una maglia a maniche lunghe e pantaloni lunghi, accompagnati da sneakers, sono perfetti"),
+                (float("inf"), "una t-shirt in cotone fresco e pantaloni corti, accompagnati da sneakers traspiranti; non dimenticare occhiali da sole e un cappellino")
+            ],
+            "Pomeriggio": [
+                (10,   "indossa un piumino leggero o una giacca imbottita, pantaloni lunghi e scarpe chiuse"),
+                (15,   "optare per un giubbotto in pile e pantaloni lunghi è ideale"),
+                (20,   "una felpa leggera e pantaloni lunghi o jeans sono sufficienti; tieni a portata di mano una borraccia d’acqua"),
+                (float("inf"), "optare per un top in lino o tessuto tecnico e shorts leggeri è ideale; tieni a portata di mano una borraccia d’acqua e cerca qualche momento d’ombra")
+            ],
+            "Sera": [
+                (10,   "indossa un cappotto o un piumino leggero, maglione in lana e pantaloni lunghi"),
+                (15,   "porta un coprispalle o una giacca in pile insieme a pantaloni lunghi"),
+                (20,   "una camicia in lino o un maglioncino leggero con pantaloni lunghi va benissimo"),
+                (float("inf"), "le temperature rimarranno miti ma porta con te un coprispalle leggero o una camicia in lino da indossare al tramonto")
+            ],
+        }
 
-        else:  # Sera
-            frase += (
-                f"Verso sera, con {desc} e circa {temp:.0f}°C e {vento_str}, "
-                "le temperature rimarranno miti ma porta con te un coprispalle leggero o una camicia in lino "
-                "da indossare al tramonto"
-            )
-            # variazione accessori serali
-            frase += "; per un tocco di stile, considera un foulard sottile o un basco in cotone"
-            # idratazione serale se ancora caldo
-            if temp >= 25:
-                frase += " e non dimenticare di restare idratato con un po’ d’acqua"
-            frase += "."
+        # Se il periodo non è riconosciuto, usa una regola di fallback
+        rules = outfit_rules.get(periodo, outfit_rules["Mattino"])
+        outfit_text = ""
+        for max_t, text in rules:
+            if temp <= max_t:
+                outfit_text = text
+                break
 
-        return frase
+        # Aggiustamenti extra per vento o caldo estremo
+        extras = []
+        if periodo == "Pomeriggio" and vento > 4 and temp > 15:
+            extras.append("se senti un refolo, una bandana leggera può fare la differenza")
+        if periodo == "Mattino" and temp >= 28:
+            extras.append("porta con te una bottiglia d’acqua")
+        if periodo == "Pomeriggio" and temp >= 30:
+            extras.append("ricorda di fare pause all’ombra e mantenerti idratato")
+        if periodo == "Sera" and temp >= 25:
+            extras.append("non dimenticare di restare idratato con un po’ d’acqua")
+
+        # --- 4. Gestione precipitazioni
+        desc_lower = desc.lower()
+        precip_umbrella = ["pioggia", "rovesci", "temporale", "acquazzone"]
+        precip_boots    = ["neve", "grandine"]
+        precip_suggs = []
+        if any(k in desc_lower for k in precip_umbrella):
+            precip_suggs.append("un ombrello e un impermeabile leggero")
+        if any(k in desc_lower for k in precip_boots):
+            precip_suggs.append("stivali o scarpe impermeabili")
+
+        # --- 5. Composizione finale
+        sentence = (
+            f"{intro}, con {desc} e circa {temp:.0f}°C e {vento_str}, {outfit_text}"
+        )
+        if extras:
+            sentence += "; " + "; ".join(extras)
+        if precip_suggs:
+            sentence += f". Non dimenticare di portare {' e '.join(precip_suggs)}."
+        else:
+            sentence += "."
+
+        return sentence
+
 
 class ActionActivityAdvice(Action):
 
@@ -399,29 +431,24 @@ class ActionActivityAdvice(Action):
             dispatcher.utter_message(text="❓ Quale attività ti piacerebbe fare?")
             return []
 
-        # Salvo l'attività per i prossimi turni
         events: List[SlotSet] = [SlotSet("activity", activity)]
 
-        # prendo i dati meteo
         data, label = self._fetch_weather(city, date_raw)
         if data is None:
             dispatcher.utter_message(text=f"😕 Scusami, non ho previsioni per “{date_raw}” a {city}.")
             return events
-
-        # costruisco il messaggio
+        
         msg = self._build_message(label, data, activity)
         dispatcher.utter_message(text=msg)
         return events
 
     def _fetch_weather(self, city: str, date_raw: str):
         slot = date_raw.lower()
-        # Oggi / ora
         if slot in ["oggi", "adesso", "ora"]:
             current = self.client.get_current(city)
             if not current:
                 return None, None
             return current, f"Oggi a {city}"
-        # Forecast per domani, dopodomani o giorno della settimana
         forecast = self.client.get_forecast(city)
         if not forecast or not forecast.get("list"):
             return None, None
@@ -461,7 +488,6 @@ class ActionActivityAdvice(Action):
         rain       = "pioggia" in desc.lower() or "rain" in desc.lower()
         wind_speed = data["wind"].get("speed", 0.0)
 
-        # caso pioggia
         if rain:
             alternative = " leggere un libro 📖 o guardare un film 🍿"
             return (
@@ -469,7 +495,6 @@ class ActionActivityAdvice(Action):
                 f"Potresti considerare di{alternative}."
             )
 
-        # condizioni perfette
         if 10 <= temp <= 25 and wind_speed < 5:
             return (
                 f"{label}: ottime condizioni per {activity}! ✅ {desc.lower()}, "
@@ -477,7 +502,6 @@ class ActionActivityAdvice(Action):
                 "Divertiti"
             )
 
-        # condizioni borderline
         reasons = []
         if temp < 10:
             reasons.append("fa piuttosto freddo 🥶")
