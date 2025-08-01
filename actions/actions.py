@@ -9,6 +9,7 @@ from rasa_sdk.types import DomainDict
 from dotenv import load_dotenv
 from rasa_sdk.events import SlotSet
 from collections import Counter
+from typing import List
 
 # Load environment variables
 load_dotenv()
@@ -87,39 +88,39 @@ class ActionGetWeather(Action):
         if str(data.get("cod")) != "200":
             dispatcher.utter_message(text=f"Errore meteo: {data.get('message','Errore')}")
             return []
-        main   = data.get("main",{})
-        wind   = data.get("wind",{})
-        sys    = data.get("sys",{})
-        coord  = data.get("coord",{})
-        desc   = data['weather'][0].get('description','')
+
+        main   = data.get("main", {})
+        wind   = data.get("wind", {})
+        sys    = data.get("sys", {})
+        coord  = data.get("coord", {})
+        desc   = data['weather'][0].get('description', '')
         now    = datetime.now()
         day_nm = _DAYS_IT[now.weekday()]
         dt_str = now.strftime("%d/%m/%Y %H:%M")
-        lines  = [f"🌦️ Meteo per {city} – {day_nm} {dt_str}"]
-        lines += [
-            f"• 🌡️ Temp: {main.get('temp','N/D')}°C (perc. {main.get('feels_like','N/D')}°C)",
-            f"• ☔ Condizioni: {desc} {self.emoji(desc)}",
-            f"• 💧 Umidità: {main.get('humidity','N/D')}%",
-            f"• 🧭 Pressione: {main.get('pressure','N/D')} hPa",
-            f"• 🌬️ Vento: {wind.get('speed','N/D')} m/s ({wind.get('deg','—')}°)",
-            f"• 👁️ Visibilità: {round(data.get('visibility',0)/1000,1)} km",
-            f"• ☁️ Nuvolosità: {data.get('clouds',{}).get('all','N/D')}%",
-            f"• 🌅 Alba: {self._format_time(sys.get('sunrise'), data.get('timezone',0))}  |  🌇 Tramonto: {self._format_time(sys.get('sunset'), data.get('timezone',0))}"
-        ]
-        # air pollution
-        lat=coord.get('lat'); lon=coord.get('lon')
+
+        # Costruisco il bollettino continuativo
+        message = (
+            f"Ecco il bollettino meteorologico per oggi a {city}: \n"
+            f"in questo momento registriamo {main.get('temp','N/D')} °C con sensazione termica di {main.get('feels_like','N/D')} °C "
+            f"e condizioni di «{desc}» {self.emoji(desc)}. "
+            f"L’umidità relativa è al {main.get('humidity','N/D')}% e la pressione barometrica si attesta a {main.get('pressure','N/D')} hPa. "
+            f"Il vento soffia a {wind.get('speed','N/D')} m/s, "
+            f"la visibilità è di circa {round(data.get('visibility',0)/1000,1)} km e la copertura nuvolosa si aggira sul {data.get('clouds',{}).get('all','N/D')}%. "
+            f"L’alba è avvenuta alle {self._format_time(sys.get('sunrise'), data.get('timezone',0))} e il tramonto avverrà alle {self._format_time(sys.get('sunset'), data.get('timezone',0))}."
+        )
+
+        # Qualità dell'aria, se disponibile
+        lat = coord.get('lat'); lon = coord.get('lon')
         if lat and lon:
             air = self.client.get_air_pollution(lat, lon)
             if air and air.get('list'):
-                aqi=air['list'][0]['main'].get('aqi'); comps=air['list'][0].get('components',{})
-                aqi_map={1:'Buona',2:'Moderata',3:'Scadente',4:'Povera',5:'Molto povera'}
-                lines.append(f"• 🌫️ Qualità aria (AQI): {aqi_map.get(aqi,'N/D')}")
-                #lines.append(f"  - PM2.5: {comps.get('pm2_5','N/A')} µg/m³ | PM10: {comps.get('pm10','N/A')} µg/m³")
+                aqi = air['list'][0]['main'].get('aqi')
+                aqi_map = {1:'buona', 2:'moderata', 3:'scadente', 4:'povera', 5:'molto povera'}
+                message += f" La qualità dell'aria è {aqi_map.get(aqi,'N/D')}."
 
-
-        dispatcher.utter_message(text="\n".join(lines))
+        dispatcher.utter_message(text=message)
         return []
-    
+
     def _handle_forecast(
         self,
         dispatcher: CollectingDispatcher,
@@ -131,55 +132,73 @@ class ActionGetWeather(Action):
         slot_l = slot.lower()
         tz     = data["city"].get("timezone", 0)
 
-        # 1) Calcola la data target:
+        # 1) Calcola la data target
         if slot_l in _WEEKDAY_LOOKUP:
             wd_today  = today.weekday()
             wd_target = _WEEKDAY_LOOKUP[slot_l]
-            # giorni da aggiungere fino al prossimo slot_l
             delta_days = (wd_target - wd_today + 7) % 7 or 7
             target = today + timedelta(days=delta_days)
         else:
-            # domani / dopodomani
             offset_map = {"domani": 1, "dopodomani": 2}
             target     = today + timedelta(days=offset_map.get(slot_l, 0))
 
-        # 2) Filtro delle entry
-        daily_entries = []
+        # 2) Filtra le entry per il giorno target
+        entries = []
         for e in data.get("list", []):
             dt_utc   = datetime.fromtimestamp(e["dt"], timezone.utc)
             dt_local = dt_utc + timedelta(seconds=tz)
             if dt_local.date() == target:
-                daily_entries.append((dt_local, e))
-        daily_entries.sort(key=lambda x: x[0])
+                entries.append((dt_local, e))
+        entries.sort(key=lambda x: x[0])
 
-        if not daily_entries:
+        if not entries:
             dispatcher.utter_message(text=f"Non ho trovato previsioni per {slot.capitalize()}.")
             return []
 
-        # 3) Header con giorno della settimana e data target
+        # 3) Raggruppa per fase della giornata
+        morning   = [e for e in entries if e[0].hour < 12]
+        afternoon = [e for e in entries if 12 <= e[0].hour < 18]
+        evening   = [e for e in entries if e[0].hour >= 18]
+
+        def summarize(group):
+            # prende la prima entry del gruppo
+            dt_local, entry = group[0]
+            w      = entry.get("weather", [{}])[0]
+            desc   = w.get("description", "N/D")
+            temp   = entry.get("main", {}).get("temp", "N/D")
+            hum    = entry.get("main", {}).get("humidity", "N/D")
+            wind_v = entry.get("wind", {}).get("speed", "N/D")
+            emoji  = self.emoji(desc)
+            return desc, temp, hum, wind_v, emoji
+
+        # 4) Costruisci il bollettino
         day_name       = _DAYS_IT[target.weekday()]
         formatted_date = target.strftime("%d/%m/%Y")
-        header = f"⛅ Previsioni per - {day_name} {formatted_date} a {city}:"
-        dispatcher.utter_message(text=header)
+        parts = [f"Ecco le previsioni per {city} – {day_name} {formatted_date}."]
+        
+        if morning:
+            desc, temp, hum, wind_v, emoji = summarize(morning)
+            parts.append(
+                f" La mattina si presenterà {desc} {emoji}, con temperature attorno ai {temp}°C, "
+                f"umidità intorno al {hum}% e vento debole a {wind_v} m/s."
+            )
+        if afternoon:
+            desc, temp, hum, wind_v, emoji = summarize(afternoon)
+            parts.append(
+                f" Durante il pomeriggio il cielo tenderà a essere {desc} {emoji}, "
+                f"con punte di {temp}°C, umidità al {hum}% e brezze a {wind_v} m/s."
+            )
+        if evening:
+            desc, temp, hum, wind_v, emoji = summarize(evening)
+            parts.append(
+                f" In serata ci aspettiamo {desc} {emoji}, temperature in calo verso i {temp}°C, "
+                f"umidità al {hum}% e vento a {wind_v} m/s."
+            )
 
-        # 4) Mini‑card per ogni orario
-        for dt_local, entry in daily_entries:
-            t     = dt_local.strftime("%H:%M")
-            w     = entry.get("weather",[{}])[0]
-            desc  = w.get("description","N/D")
-            emoji = self.emoji(desc)
-            main  = entry.get("main",{})
-            wind  = entry.get("wind",{})
-            clouds  = entry.get("clouds", {}).get("all", "N/D")
-            lines = [
-                f"{t} — {emoji} {desc}",
-                f"Temperatura: {main.get('temp','N/D')}°C | Umidità: {main.get('humidity','N/D')}% | "
-                f"Vento: {wind.get('speed','N/D')} m/s ({wind.get('deg','—')}°) | "
-                f"Nuvolosità: {clouds}%"
-            ]
-            dispatcher.utter_message(text="\n".join(lines))
-
+        message = "".join(parts)
+        dispatcher.utter_message(text=message)
         return []
+
 
     def _format_time(self, ts: Any, tz_offset: int) -> Text:
         return 'N/D' if not ts else datetime.fromtimestamp(ts+tz_offset,timezone.utc).strftime('%H:%M')
@@ -201,10 +220,13 @@ class ValidateWeatherForm(FormValidationAction):
         if resp.status_code!=200 or not resp.json(): dispatcher.utter_message(response='utter_invalid_city',city=slot_value); return {'city':None}
         return {'city':slot_value}
 
+
+
 class ActionClothingAdvice(Action):
 
     def __init__(self) -> None:
         self.client = OpenWeatherClient(API_KEY)
+
 
     def name(self) -> Text:
         return "action_clothing_advice"
@@ -213,121 +235,145 @@ class ActionClothingAdvice(Action):
         self, dispatcher: CollectingDispatcher,
         tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
+
         city      = tracker.get_slot("city")
-        date_slot = tracker.get_slot("date") or "oggi"
+        date_slot = (tracker.get_slot("date") or "oggi").lower()
 
         if not city:
             dispatcher.utter_message(text="Per favore, dimmi per quale città.")
             return []
 
-        slot_l = date_slot.lower()
+        # 1. Prendo sempre le previsioni a 5 giorni / 3h
+        fdata = self.client.get_forecast(city)
+        if not fdata or not fdata.get("list"):
+            dispatcher.utter_message(text="Servizio meteo non disponibile.")
+            return []
 
-        # Caso “oggi”: uso il meteo corrente
-        if slot_l in ["oggi", "ora", "adesso"]:
-            data = self.client.get_current(city)
-            if not data:
-                dispatcher.utter_message(text="Servizio meteo non disponibile.")
-                return []
-            avg_temp   = data["main"].get("temp", 0.0)
-            avg_wind   = data["wind"].get("speed", 0.0)
-            rec_desc   = data["weather"][0].get("description", "")
-            label      = f"Oggi a {city}"
+        # 2. Calcolo la data target
+        today = datetime.now().date()
+        if date_slot in _WEEKDAY_LOOKUP:
+            wd_today  = today.weekday()
+            wd_target = _WEEKDAY_LOOKUP[date_slot]
+            delta     = (wd_target - wd_today + 7) % 7 or 7
+            target    = today + timedelta(days=delta)
         else:
-            # Previsioni per giorno futuro
-            fdata = self.client.get_forecast(city)
-            if not fdata or not fdata.get("list"):
-                dispatcher.utter_message(text=f"Non ho previsioni per {date_slot}.")
-                return []
+            offset_map = {"oggi":0, "ora":0, "adesso":0, "domani":1, "dopodomani":2}
+            target     = today + timedelta(days=offset_map.get(date_slot, 0))
 
-            # Calcola data target
-            today = datetime.now().date()
-            if slot_l in _WEEKDAY_LOOKUP:
-                wd_today  = today.weekday()
-                wd_target = _WEEKDAY_LOOKUP[slot_l]
-                delta     = (wd_target - wd_today + 7) % 7 or 7
-                target    = today + timedelta(days=delta)
-            else:
-                offset_map = {"domani":1, "dopodomani":2}
-                target     = today + timedelta(days=offset_map.get(slot_l, 0))
+        # 3. Filtro le entry per il giorno target
+        tz = fdata["city"].get("timezone", 0)
+        entries = [
+            e for e in fdata["list"]
+            if (datetime.fromtimestamp(e["dt"], timezone.utc)
+                + timedelta(seconds=tz)).date() == target
+        ]
+        if not entries:
+            dispatcher.utter_message(text=f"Non ho previsioni utili per «{date_slot}».")
+            return []
 
-            tz = fdata["city"].get("timezone", 0)
-            entries = [
-                e for e in fdata["list"]
-                if (datetime.fromtimestamp(e["dt"], timezone.utc) + timedelta(seconds=tz)).date() == target
+        # 4. Definisco le fasce orarie
+        fasce = {
+            "Mattino":    (6, 12),
+            "Pomeriggio": (12, 18),
+            "Sera":       (18, 24),
+        }
+
+        # 5. Raccolgo medie e descrizione prevalente per ciascuna fascia
+        segmenti: Dict[str, Dict[str, Any]] = {}
+        for nome, (h1, h2) in fasce.items():
+            seg = [
+                e for e in entries
+                if h1 <= (datetime.fromtimestamp(e["dt"], timezone.utc)
+                          + timedelta(seconds=tz)).hour < h2
             ]
-            if not entries:
-                dispatcher.utter_message(text=f"Non ho previsioni utili per {date_slot}.")
-                return []
+            if not seg:
+                continue
+            temps = [e["main"]["temp"] for e in seg]
+            winds = [e["wind"]["speed"] for e in seg]
+            descs = [w["description"] for e in seg for w in e.get("weather", [])]
 
-            # Calcola medie
-            temps    = [e["main"].get("temp", 0.0) for e in entries]
-            winds    = [e["wind"].get("speed", 0.0) for e in entries]
-            avg_temp = sum(temps) / len(temps)
-            avg_wind = sum(winds) / len(winds)
+            avg_t = sum(temps) / len(temps)
+            avg_w = sum(winds) / len(winds)
+            main_desc = Counter(descs).most_common(1)[0][0]
 
-            # Descrizione più frequente
-            from collections import Counter
-            descs    = [w["description"] for e in entries for w in e.get("weather", [])]
-            rec_desc = Counter(descs).most_common(1)[0][0]
+            segmenti[nome] = {"temp": avg_t, "vento": avg_w, "desc": main_desc}
 
-            label = f"Previsioni per {date_slot} a {city}"
+        # 6. Costruisco i paragrafi narrativi
+        paragrafi: List[str] = []
+        for periodo, s in segmenti.items():
+            paragrafi.append(
+                self._narrative_paragraph(
+                    periodo=periodo,
+                    desc=s["desc"],
+                    temp=s["temp"],
+                    vento=s["vento"]
+                )
+            )
 
-        # Genera consiglio
-        rec = self._recommendation(avg_temp, "pioggia" in rec_desc.lower(), avg_wind)
-
-        # Messaggio finale
-        msg = (
-            f"{label}: {rec_desc}, temperatura media {avg_temp:.1f}°C, vento medio {avg_wind:.1f} m/s \n"
-            f"{rec}."
-        )
-        dispatcher.utter_message(text=msg)
+        # 7. Invio il messaggio
+        testo = f"Per la giornata di {date_slot} a {city}:\n\n" + "\n\n".join(paragrafi)
+        dispatcher.utter_message(text=testo)
         return []
 
-    def _recommendation(self, temp: float, pioggia: bool, vento: float) -> str:
-
-        parti: List[str] = []
-
-        # Abbigliamento principale con dettagli
-        if temp < 0:
-            parti.append("🥶 Cappotto pesante + maglione e sciarpa")
-            parti.append("🧤 Guanti caldi")
-        elif temp < 5:
-            parti.append("🧥 Giaccone pesante + felpa sotto")
-            parti.append("🧣 Sciarpa")
-        elif temp < 10:
-            parti.append("🧥 Giacca imbottita")
-            parti.append("🧤 Guanti leggeri, se necessario")
-        elif temp < 15:
-            parti.append("🧥 Giacca primaverile o cardigan")
-            parti.append("👕 Maglietta a maniche lunghe")
-        elif temp < 20:
-            parti.append("👕 Felpa leggera o maglia a maniche lunghe")
-        else:
-            parti.append("👕 T‑shirt comoda")
-            parti.append("🩳 Pantaloni corti o gonna, se gradito")
-
-        # Protezione dalla pioggia
-        if pioggia:
-            parti.append("🌂 Ombrello resistente")
-            parti.append("🧥 Impermeabile o k-way")
-
-        # Protezione dal vento
+    def _narrative_paragraph(
+        self,
+        periodo: str,
+        desc: str,
+        temp: float,
+        vento: float
+    ) -> str:
+        """
+        Crea un paragrafo naturale e variato per mattino/pomeriggio/sera.
+        """
+        # Descrivo il vento
         if vento > 8:
-            parti.append("🌬️ Giacca antivento + sciarpa")
-        elif vento > 6:
-            parti.append("🧥 Giubbotto antivento")
+            vento_str = f"vento sostenuto a {vento:.1f} m/s"
+        elif vento > 4:
+            vento_str = f"brezza leggera a {vento:.1f} m/s"
+        else:
+            vento_str = "aria calma"
 
-        # Accessori per il sole se non piove
-        if not pioggia and vento <= 6:
-            parti.append("😎 Occhiali da sole")
-            parti.append("👒 Cappello o visiera")
+        # Inizio comune
+        frase = ""
+        if periodo == "Mattino":
+            frase += (
+                f"Al mattino, con {desc} e circa {temp:.0f}°C e {vento_str}, "
+                "inizia la giornata con una T-shirt in cotone fresco e pantaloni corti, "
+                "accompagnati da sneakers traspiranti. "
+                "Non dimenticare occhiali da sole e un cappellino"
+            )
+            # idratazione anche al mattino se fa molto caldo
+            if temp >= 28:
+                frase += " e porta con te una bottiglia d’acqua"
+            frase += "."
 
-        # Costruzione dell'elenco puntato
-        elenco = "\n".join(f"• {item}" for item in parti)
+        elif periodo == "Pomeriggio":
+            frase += (
+                f"A metà pomeriggio, con {desc} e circa {temp:.0f}°C e {vento_str}, "
+                "optare per un top in lino o tessuto tecnico e shorts leggeri è ideale; "
+                "tieni a portata di mano una borraccia d’acqua e cerca qualche momento d’ombra"
+            )
+            # aggiungo consiglio su bandana in caso di refolo
+            phrase_wind = vento > 4
+            if phrase_wind:
+                frase += ", e se senti un refolo, una bandana leggera può fare la differenza"
+            frase += "."
 
-        # Frase introduttiva + elenco
-        return f"Ti consiglio di indossare: \n{elenco}"
+        else:  # Sera
+            frase += (
+                f"Verso sera, con {desc} e circa {temp:.0f}°C e {vento_str}, "
+                "le temperature rimarranno miti ma porta con te un coprispalle leggero o una camicia in lino "
+                "da indossare al tramonto"
+            )
+            # variazione accessori serali
+            frase += "; per un tocco di stile, considera un foulard sottile o un basco in cotone"
+            # idratazione serale se ancora caldo
+            if temp >= 25:
+                frase += " e non dimenticare di restare idratato con un po’ d’acqua"
+            frase += "."
 
+        return frase
+    
 class ActionActivityAdvice(Action):
 
     def __init__(self) -> None:
