@@ -298,3 +298,21 @@ Città di Panama
 Città di Belize
 L’Avana
 Santo Domingo
+Roma
+Milano
+Napoli
+Torino
+Palermo
+Genova
+Bologna
+Firenze
+Bari
+Catania
+Vienna
+Mosca
+San Pietroburgo
+Amsterdam
+Bruxelles
+Bucarest
+Varsavia
+Sofia

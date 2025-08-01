@@ -1,0 +1,10 @@
+[
+  {
+    "name": "date",
+    "pattern": "(\\boggi\\b|\\bdomani\\b|\\bdopodomani\\b|\\blunedì\\b|\\bmartedì\\b|\\bmercoledì\\b|\\bgiovedì\\b|\\bvenerdì\\b|\\bsabato\\b|\\bdomenica\\b|\\bmattina\\b|\\bpomeriggio\\b|\\bsera\\b|\\bnotte\\b)"
+  },
+  {
+    "name": "activity",
+    "pattern": "(\\bcorsa\\b|\\bcorrere\\b|\\bjogging\\b|\\bcamminata\\b|\\bpasseggiata\\b|\\btrekking\\b|\\bescursione\\b|\\balpinismo\\b|\\barrampicata\\b|\\bbicicletta\\b|\\bciclismo\\b|\\bmountain\\ bike\\b|\\bnuoto\\b|\\btuffi\\b|\\bsnorkeling\\b|\\bimmersioni\\b|\\bsurf\\b|\\bwindsurf\\b|\\bkitesurf\\b|\\bvela\\b|\\bkayak\\b|\\bcanoa\\b|\\bpesca\\b|\\bsci\\b|\\bsnowboard\\b|\\bslittino\\b|\\bpattinaggio\\b|\\btennis\\b|\\bpadel\\b|\\bsquash\\b|\\bping\\ pong\\b|\\bcalcio\\b|\\bcalcetto\\b|\\bbasket\\b|\\bpallacanestro\\b|\\bpallavolo\\b|\\brugby\\b|\\bbaseball\\b|\\bsoftball\\b|\\bgolf\\b|\\bequitazione\\b|\\barti\\ marziali\\b|\\bkarate\\b|\\bjudo\\b|\\btaekwondo\\b|\\bboxe\\b|\\bkickboxing\\b|\\bpilates\\b|\\byoga\\b|\\bmeditazione\\b|\\bstretching\\b|\\bginnastica\\b|\\bpalestra\\b|\\ballenamento\\b|\\bcrossfit\\b|\\bzumba\\b|\\bdanza\\b|\\bballo\\b|\\bballi\\ di\\ gruppo\\b|\\bballo\\ latino\\b|\\bescursione\\b|\\bnordic\\ walking\\b|\\bcampeggio\\b|\\bpicnic\\b|\\battività\\ all’aperto\\b|\\bgiardinaggio\\b|\\bfotografia\\b|\\bbirdwatching\\b|\\bosservazione\\ delle\\ stelle\\b|\\blettura\\b|\\bscrittura\\b|\\bpittura\\b|\\bdisegno\\b|\\bmodellismo\\b|\\bfai\\ da\\ te\\b|\\bbricolage\\b|\\bcucina\\b|\\bpasticceria\\b|\\bvideogiocare\\b|\\bgiochi\\ da\\ tavolo\\b|\\bpuzzle\\b|\\bcinema\\b|\\bteatro\\b|\\bmusica\\b|\\bsuonare\\ uno\\ strumento\\b|\\bcantare\\b|\\bpodcast\\b|\\bpodcasting\\b|\\bvolontariato\\b|\\bvisite\\ culturali\\b|\\bmusei\\b|\\bmostre\\b|\\bshopping\\b|\\bvisitare\\ monumenti\\b|\\bescursioni\\ naturalistiche\\b|\\bescursioni\\ storiche\\b|\\bgeocaching\\b|\\besplorare\\b)"
+  }
+]

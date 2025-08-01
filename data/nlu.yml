@@ -63,6 +63,10 @@ nlu:
   examples: |
     !include lookups/city.txt
 
+- lookup: city
+  examples: |
+    !include lookups/activity.txt
+
 - lookup: date
   examples: |
     - oggi
@@ -79,18 +83,3 @@ nlu:
     - pomeriggio
     - sera
     - notte
-
-- lookup: activity
-  examples: |
-    - corsa
-    - correre
-    - attività all’aperto
-    - picnic
-    - sport
-    - bicicletta
-    - ciclismo
-    - passeggiata
-    - trekking
-    - nuoto
-    - yoga
-    - escursione
