@@ -7,6 +7,9 @@ intents:
   - dammi_meteo
   - ask_clothing_advice    
   - ask_activity_advice    
+  - ask_air_quality
+  - ask_sun_times
+  - ask_city_overview
 
 entities:
   - city
@@ -51,19 +54,32 @@ activity:
 responses:
   utter_start:
     - text: |
-        👋 Ciao! Sono MeteoAssistantBot, il tuo assistente meteo personale.   
-        Sono qui per fornirti previsioni precise e aggiornate in pochi secondi! 🌦️ 
+        Ciao! Sono MeteoAssistantBot, il tuo assistente meteo personale.   
+        Previsioni precise e aggiornate in pochi secondi! 🌦️  
 
-        ℹ️ Per scoprire tutte le funzionalità, digita il comando /help.
+        ℹ️ Scopri tutte le funzionalità digitando /help per vedere cosa posso fare.
 
   utter_help:
     - text: |
-        ☁️ Puoi chiedermi informazioni sul meteo, consigli di abbigliamento o attività:
-        • Com'è il tempo a Milano?
-        • Cosa indossare lunedì a Roma?
-        • È un buon giorno per correre a Torino?
+        Puoi chiedermi informazioni riguardo: 
 
-        Puoi sostituire "Milano" con qualsiasi altra città!
+        ☁️ Meteo  
+        • Com'è il tempo a Milano?  
+        • Previsioni settimanali a Napoli?
+
+        👕 Consigli di abbigliamento  
+        • Cosa indossare lunedì a Roma?  
+        • Ho bisogno di un giubbotto a Bolzano?  
+
+        🚴 Attività consigliate  
+        • È un buon giorno per correre a Torino?  
+        • Posso andare in bici mercoledì a Firenze?  
+
+        🌅 Altre informazioni 
+        • Com'è la qualità dell'aria a Palermo?  
+        • Orari di alba e tramonto a Venezia?  
+
+        Prova a sostituire “Milano” o la data con qualsiasi altra città o giorno!
 
 
   utter_ask_weather_form_city:
@@ -72,11 +88,23 @@ responses:
   utter_submit_weather_form:
     - text: "Perfetto, sto cercando il meteo per {date} a {city}…"
 
+  utter_invalid_city:
+    - text: "😕 Spiacente, non ho trovato la città {city}."
+
+  utter_weather_unavailable:
+    - text: |
+        ⚠️ Mi dispiace, al momento non riesco ad accedere al servizio meteo. 
+        Riprova tra qualche istante o controlla la tua connessione.
+
 actions:
   - action_get_weather
   - validate_weather_form
   - action_clothing_advice  
   - action_activity_advice
+  - action_get_air_quality
+  - action_get_sun_times
+  - action_get_attractions
+
 
 session_config:
   session_expiration_time: 60

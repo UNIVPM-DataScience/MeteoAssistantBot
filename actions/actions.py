@@ -11,7 +11,9 @@ from rasa_sdk.events import SlotSet
 from collections import Counter
 from typing import List
 import pandas as pd
+from requests.exceptions import RequestException, Timeout,HTTPError
 
+#url dataset https://www.kaggle.com/datasets/faizadani/european-tour-destinations-dataset?resource=download
 load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY") or os.getenv("API_KEY")
 if not API_KEY:
@@ -22,13 +24,36 @@ logger = logging.getLogger(__name__)
 _DAYS_IT = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"]
 _WEEKDAY_LOOKUP = {d.lower(): i for i, d in enumerate(_DAYS_IT)}
 
-CITIES_DF = pd.read_csv(
-    os.path.join(os.path.dirname(__file__), "data", "cities.csv"),
-    usecols=["city_ascii","country","population","lat","lng"],
-    dtype={"city_ascii": str, "country": str, "population": float, "lat": float, "lng": float}
+ATTRACTIONS_DF = pd.read_csv(
+    os.path.join(os.path.dirname(__file__), "data", "attractions_europe_ita.csv"),
+    usecols=[
+        "Destinazione",       # nome città
+        "Regione",            # Regione
+        "Paese",              # Nazione
+        "Turisti Annui Stimati",  # Popolazione turistica
+        "Latitudine",         # lat
+        "Longitudine"         # lon
+    ],
+    dtype={
+        "Destinazione": str,
+        "Regione": str,
+        "Paese": str,
+        "Turisti Annui Stimati": str,
+        "Latitudine": float,
+        "Longitudine": float
+    }
 )
 
-CITIES_DF["city_key"] = CITIES_DF["city_ascii"].str.lower()
+ATTRACTIONS_DF = ATTRACTIONS_DF.rename(columns={
+    "Destinazione": "city",
+    "Regione": "region",
+    "Paese": "country",
+    "Turisti Annui Stimati": "annual_tourists",
+    "Latitudine": "lat",
+    "Longitudine": "lng"
+})
+
+ATTRACTIONS_DF["city_key"] = ATTRACTIONS_DF["city"].str.lower()
 
 class OpenWeatherClient:
     BASE_URL = "https://api.openweathermap.org/data/2.5"
@@ -65,16 +90,18 @@ class ActionGetWeather(Action):
 
     def run(self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]) -> List[Dict[Text, Any]]:
         city      = tracker.get_slot("city")
-        # cerco la riga corrispondente (case-insensitive)
-        match = CITIES_DF[CITIES_DF["city_key"] == city.lower()]
+
+        match = ATTRACTIONS_DF[ATTRACTIONS_DF["city_key"] == city.lower()]
         if not match.empty:
-            info = match.iloc[0]
+            info       = match.iloc[0]
+            region     = info["region"]
             country    = info["country"]
-            population = f"{int(info['population']):,}".replace(",", ".")
-            lat, lon   = info["lat"], info["lng"]
-            intro = f"{city} ({country}, pop. {population} abitanti, lat {lat:.2f}, lon {lon:.2f})"
+
+            intro = (
+                f"{city}({region}, {country})"
+            )
         else:
-            intro = f"{city}:\n"
+            intro = f"{city}:"
 
         date_slot = tracker.get_slot("date") or "oggi"
         if not city:
@@ -103,32 +130,26 @@ class ActionGetWeather(Action):
             dispatcher.utter_message(text=f"Errore meteo: {data.get('message','Errore')}")
             return []
 
-        main   = data.get("main", {})
-        wind   = data.get("wind", {})
-        sys    = data.get("sys", {})
-        coord  = data.get("coord", {})
+        main     = data.get("main", {})
         desc   = data['weather'][0].get('description', '')
-        now    = datetime.now()
-        day_nm = _DAYS_IT[now.weekday()]
-        dt_str = now.strftime("%d/%m/%Y %H:%M")
+        wind     = data.get("wind", {})
+        visibility_km = round(data.get("visibility", 0) / 1000)
+
+        temp        = round(main.get("temp", 0))
+        feels_like  = round(main.get("feels_like", 0))
+        humidity    = main.get("humidity", "N/D")
+        pressure    = main.get("pressure", "N/D")
+        wind_speed  = round(wind.get("speed", 0), 1)
+
+        header = intro
 
         message = (
-            f"Ecco il bollettino meteorologico per oggi a {intro}: \n"
-            f"in questo momento registriamo {main.get('temp','N/D')} °C con sensazione termica di {main.get('feels_like','N/D')} °C "
-            f"e condizioni di «{desc}» {self.emoji(desc)}. "
-            f"L’umidità relativa è al {main.get('humidity','N/D')}% e la pressione barometrica si attesta a {main.get('pressure','N/D')} hPa. "
-            f"Il vento soffia a {wind.get('speed','N/D')} m/s, "
-            f"la visibilità è di circa {round(data.get('visibility',0)/1000,1)} km e la copertura nuvolosa si aggira sul {data.get('clouds',{}).get('all','N/D')}%. "
-            f"L’alba è avvenuta alle {self._format_time(sys.get('sunrise'), data.get('timezone',0))} e il tramonto avverrà alle {self._format_time(sys.get('sunset'), data.get('timezone',0))}."
+            f"Oggi a {header}, {desc} {self.emoji(desc)},la temperatura è di {temp} °C "
+            f"(percepiti {feels_like} °C). "
+            f"L’umidità è al {humidity}%, la pressione a {pressure} hPa e "
+            f"il vento soffia leggermente a {wind_speed} m/s. "
+            f"Si gode di ottima visibilità (circa {visibility_km} km) e copertura nuvolosa pari al {data.get('clouds',{}).get('all','N/D')}%."
         )
-
-        lat = coord.get('lat'); lon = coord.get('lon')
-        if lat and lon:
-            air = self.client.get_air_pollution(lat, lon)
-            if air and air.get('list'):
-                aqi = air['list'][0]['main'].get('aqi')
-                aqi_map = {1:'buona', 2:'moderata', 3:'scadente', 4:'povera', 5:'molto povera'}
-                message += f" La qualità dell'aria è {aqi_map.get(aqi,'N/D')}."
 
         dispatcher.utter_message(text=message)
         return []
@@ -174,7 +195,8 @@ class ActionGetWeather(Action):
             dt_local, entry = group[0]
             w      = entry.get("weather", [{}])[0]
             desc   = w.get("description", "N/D")
-            temp   = entry.get("main", {}).get("temp", "N/D")
+            raw = entry.get("main", {}).get("temp")
+            temp = f"{raw:.0f}" if isinstance(raw, (int, float)) else "N/D"
             hum    = entry.get("main", {}).get("humidity", "N/D")
             wind_v = entry.get("wind", {}).get("speed", "N/D")
             emoji  = self.emoji(desc)
@@ -182,14 +204,14 @@ class ActionGetWeather(Action):
 
         day_name       = _DAYS_IT[target.weekday()]
         formatted_date = target.strftime("%d/%m/%Y")
-        parts = [f"Ecco le previsioni per  {day_name} {formatted_date} a {intro} \n "]
+        parts = [f"{day_name} {formatted_date} - {intro} \n "]
 
         
         if morning:
             desc, temp, hum, wind_v, emoji = summarize(morning)
             parts.append(
-                f"La mattina si presenterà {desc} {emoji}, con temperature attorno ai {temp}°C, "
-                f"umidità intorno al {hum}% e vento debole a {wind_v} m/s."
+                f"In mattinata avremo {desc} {emoji}, con temperature attorno ai {temp}°C, "
+                f"umidità al {hum}% e vento debole a {wind_v} m/s."
             )
         if afternoon:
             desc, temp, hum, wind_v, emoji = summarize(afternoon)
@@ -222,12 +244,49 @@ class ActionGetWeather(Action):
         if 'temporale' in d or 'thunder' in d: return '⛈️'
         return '🌥️'
 
+
 class ValidateWeatherForm(FormValidationAction):
-    def name(self) -> Text: return 'validate_weather_form'
-    async def validate_city(self,slot_value:Any,dispatcher:CollectingDispatcher,tracker:Tracker,domain:DomainDict)->Dict[Text,Any]:
-        resp=requests.get(f"http://api.openweathermap.org/geo/1.0/direct?q={slot_value}&limit=1&appid={API_KEY}",timeout=5)
-        if resp.status_code!=200 or not resp.json(): dispatcher.utter_message(response='utter_invalid_city',city=slot_value); return {'city':None}
-        return {'city':slot_value}
+
+    def name(self) -> Text:
+        return "validate_weather_form"
+
+    async def validate_city(
+        self,
+        slot_value: Any,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> Dict[Text, Any]:
+
+
+        try:
+            resp = requests.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                params={
+                    "q": slot_value,
+                    "appid": API_KEY,
+                    "units": "metric",
+                    "lang": "it"
+                },
+                timeout=5
+            )
+        except (RequestException, Timeout):
+            # Problema di rete o timeout
+            dispatcher.utter_message(response="utter_weather_unavailable")
+            return {"city": None}
+
+        # Gestione dei codici HTTP
+        if resp.status_code == 200:
+            # Città trovata con successo
+            return {"city": slot_value}
+
+        if resp.status_code == 404:
+            # Città non esistente
+            dispatcher.utter_message(response="utter_invalid_city", city=slot_value)
+            return {"city": None}
+
+        dispatcher.utter_message(response="utter_weather_unavailable")
+        return {"city": None}
 
 
 
@@ -514,3 +573,247 @@ class ActionActivityAdvice(Action):
         return (
             f"{label}: {reason_text}, non è l’ideale per {activity}. "
         )
+
+
+
+class ActionGetAirQuality(Action):
+
+    def name(self) -> Text:
+        return "action_get_air_quality"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> List[Dict[Text, Any]]:
+
+        city = tracker.get_slot("city")
+        if not city:
+            dispatcher.utter_message(text="Per favore, dimmi prima una città.")
+            return []
+
+        # 1) Get coords from current weather
+        try:
+            resp = requests.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                params={"q": city, "appid": API_KEY},
+                timeout=5
+            )
+            resp.raise_for_status()
+        except HTTPError:
+            if resp.status_code == 404:
+                dispatcher.utter_message(response="utter_invalid_city", city=city)
+            else:
+                dispatcher.utter_message(response="utter_weather_unavailable")
+            return []
+        except (RequestException, Timeout):
+            dispatcher.utter_message(response="utter_weather_unavailable")
+            return []
+
+        coord = resp.json().get("coord", {})
+        lat, lon = coord.get("lat"), coord.get("lon")
+        if lat is None or lon is None:
+            dispatcher.utter_message(text=f"Non sono riuscito a ottenere le coordinate per {city}.")
+            return []
+
+        # 2) Call air_pollution
+        try:
+            ap = requests.get(
+                "https://api.openweathermap.org/data/2.5/air_pollution",
+                params={"lat": lat, "lon": lon, "appid": API_KEY},
+                timeout=5
+            )
+            ap.raise_for_status()
+        except (HTTPError, RequestException, Timeout):
+            dispatcher.utter_message(text="⚠️ Servizio qualità dell'aria non disponibile al momento.")
+            return []
+
+        data = ap.json().get("list", [])
+        if not data:
+            dispatcher.utter_message(text="Non ci sono dati di qualità dell'aria per questa località.")
+            return []
+
+        item = data[0]
+        # Map AQI
+        aqi_map = {1: "Buona", 2: "Moderata", 3: "Scadente", 4: "Povera", 5: "Molto povera"}
+        aqi = item["main"].get("aqi")
+        aqi_text = aqi_map.get(aqi, "N/D")
+
+        # —— begin integration of your snippet ——
+        # Qualitative thresholds (µg/m³)
+        thresholds = {
+            "pm2_5": [(25, "buono"), (50, "moderato"), (float("inf"), "scadente")],
+            "pm10":  [(50, "buono"), (100, "moderato"), (float("inf"), "scadente")],
+            "no2":   [(40, "buono"), (90, "moderato"), (float("inf"), "scadente")],
+            "o3":    [(60, "buono"), (120, "moderato"), (float("inf"), "scadente")],
+            "so2":   [(20, "buono"), (80, "moderato"), (float("inf"), "scadente")],
+            "co":    [(10000, "buono"), (float("inf"), "moderato")],
+            "nh3":   [(200, "buono"), (float("inf"), "moderato")],
+        }
+
+        # Descriptions of pollutants
+        descriptions = {
+            "co":    "Monossido di Carbonio – gas incolore/inodore prodotto da combustione incompleta",
+            "no":    "Monossido di Azoto – emesso da traffico e riscaldamento",
+            "no2":   "Diossido di Azoto – irritante per le vie respiratorie, da veicoli diesel",
+            "o3":    "Ozono – ossidante secondario, può causare irritazioni",
+            "so2":   "Diossido di Zolfo – da combustione di carbone e petrolio",
+            "nh3":   "Ammoniaca – da attività agricole, contribuisce al particolato",
+            "pm2_5":"Particolato fine – penetra in profondità nei polmoni",
+            "pm10": "Particolato grosso – irrita le vie aeree"
+        }
+
+        def qualifica(pollutant, value):
+            if value is None:
+                return "N/D"
+            for thr, label in thresholds.get(pollutant, []):
+                if value <= thr:
+                    return label
+            return "N/D"
+
+        comps = item["components"]
+        lines = [f"Qualità dell'aria a {city}:"]
+        lines.append(f"• AQI: {aqi_text}")
+        for key in ["co","no","no2","o3","so2","nh3","pm2_5","pm10"]:
+            val = comps.get(key)
+            if isinstance(val, (int, float)):
+                q = qualifica(key, val)
+                lines.append(f"• {key.upper()}: {round(val,1)} µg/m³ ({q}) – {descriptions[key]}")
+            else:
+                lines.append(f"• {key.upper()}: N/D – {descriptions[key]}")
+
+        message = "\n".join(lines)
+        # —— end integration ——
+
+        dispatcher.utter_message(text=message)
+        return []
+
+class ActionGetSunTimes(Action):
+
+    def name(self) -> Text:
+        return "action_get_sun_times"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> List[Dict[Text, Any]]:
+
+        city = tracker.get_slot("city")
+        if not city:
+            dispatcher.utter_message(text="Per favore, indicami prima una città.")
+            return []
+
+        # Call the current weather endpoint to get sys.sunrise, sys.sunset, timezone
+        try:
+            resp = requests.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                params={
+                    "q": city,
+                    "appid": API_KEY,
+                    "lang": "it"
+                },
+                timeout=5,
+            )
+            resp.raise_for_status()
+        except HTTPError:
+            if resp.status_code == 404:
+                dispatcher.utter_message(response="utter_invalid_city", city=city)
+            else:
+                dispatcher.utter_message(response="utter_weather_unavailable")
+            return []
+        except (RequestException, Timeout):
+            dispatcher.utter_message(response="utter_weather_unavailable")
+            return []
+
+        data = resp.json()
+        sys = data.get("sys", {})
+        tz_offset = data.get("timezone", 0)  # offset in seconds from UTC
+
+        sunrise_ts = sys.get("sunrise")
+        sunset_ts  = sys.get("sunset")
+        if sunrise_ts is None or sunset_ts is None:
+            dispatcher.utter_message(text="Non sono riuscito a recuperare gli orari di alba e tramonto.")
+            return []
+
+        # Convert timestamps + offset to local datetime
+        tz = timezone(timedelta(seconds=tz_offset))
+        sunrise = datetime.fromtimestamp(sunrise_ts, tz).strftime("%H:%M")
+        sunset  = datetime.fromtimestamp(sunset_ts,  tz).strftime("%H:%M")
+
+        message = (
+            f"A {city}, l'alba è avvenuta alle {sunrise} e il tramonto avverrà alle {sunset} (orario locale)."
+        )
+        dispatcher.utter_message(text=message)
+        return []
+
+
+class ActionGetAttractions(Action):
+
+    def __init__(self) -> None:
+        path = os.path.join(os.path.dirname(__file__), "data", "attractions_europe_ita.csv")
+        df = pd.read_csv(path, dtype=str)
+
+        # Rinomina colonne chiave
+        df = df.rename(columns={
+            "Destinazione": "city",
+            "Regione": "region",
+            "Paese": "country",
+            "Categoria": "category",
+            "Turisti Annui Stimati": "annual_tourists",
+            "Valuta": "currency",
+            "Religione Principale": "religion",
+            "Piatti Tipici": "foods",
+            "Lingua": "language",
+            "Periodo Consigliato": "best_time",
+            "Costo della Vita": "cost_of_living",
+            "Sicurezza": "safety",
+            "Significato Culturale": "cultural_significance",
+            "Descrizione": "description"
+        })
+        cols = [
+            "city", "region", "country", "category", "description",
+            "annual_tourists", "currency", "religion", "foods", "language",
+            "best_time", "cost_of_living", "safety", "cultural_significance"
+        ]
+        df = df[cols]
+        df["city_key"] = df["city"].str.lower()
+        self.df = df
+
+    def name(self) -> Text:
+        return "action_get_attractions"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any]
+    ) -> List[Dict[Text, Any]]:
+
+        raw_city = tracker.get_slot("city") or ""
+        key = raw_city.strip().lower()
+        matches = self.df[self.df["city_key"] == key]
+
+        if matches.empty:
+            dispatcher.utter_message(
+                text=f"Mi dispiace, non ho informazioni turistiche per {raw_city}."
+            )
+            return []
+
+        info = matches.iloc[0]
+
+        message = (
+            f"{info['city']} è una {info['category'].lower()} della regione {info['region']} in {info['country']}. "
+            f"È famosa per {info['description'].lower()} Ogni anno accoglie circa {info['annual_tourists']} turisti. "
+            f"La moneta locale è {info['currency']} e si parla principalmente {info['language']}, con tradizioni legate al {info['religion'].lower()}. "
+            f"Non perdere i piatti tipici come {info['foods'].lower()}. "
+            f"Il momento migliore per visitarla è {info['best_time'].lower()}, il costo della vita è {info['cost_of_living'].lower()} "
+            f"e la sicurezza viene descritta come {info['safety'].lower()}. "
+            f"Spicca come {info['cultural_significance'].lower()}."
+        )
+
+
+        dispatcher.utter_message(text=message)
+        return []

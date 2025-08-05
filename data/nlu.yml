@@ -50,6 +50,11 @@ nlu:
       - Cosa mi consigli di portare per [martedì](date) a [Napoli](city)?
       - Quale capo di abbigliamento suggerisci per [giovedì](date) a [Venezia](city)?
       - Che outfit andrà bene [sabato](date) a [Genova](city)?
+      - Cosa mi conviene indossare [oggi](date)?
+      - Che outfit devo scegliere [domani](date)?
+      - Come mi vesto [dopodomani](date)?
+      - Suggerimenti abbigliamento per [giovedì](date)?
+      - Cosa porto per [sabato](date)?
 
 
   - intent: ask_activity_advice
@@ -60,6 +65,42 @@ nlu:
       - Quale [sport](activity) praticare questo [pomeriggio](date)?
       - Mi consigli una [passeggiata](activity) [sabato](date) a [Firenze](city)?
       - Vorrei fare un [ciclismo](activity) [lunedì](date) a [Milano](city)
+      - Posso fare un picnic [domani](date)?
+      - Mi consigli un’attività all’aperto [oggi](date)?
+      - Che sport potrei fare [sabato](date)?
+
+  - intent: ask_air_quality
+    examples: |
+      - Qual è la qualità dell'aria a [Roma](city)?
+      - Com'è l'aria oggi a [Milano](city)?
+      - Voglio sapere l'indice AQI a [Torino](city)
+      - Mi dici i livelli di inquinanti a [Venezia](city)?
+      - Dammi i dati sulla qualità dell'aria a [Napoli](city)
+      - Com’è oggi l’AQI?
+      - Dammi l’indice AQI.
+      - Mi dici com’è l’aria?
+      - Voglio sapere com’è l’aria oggi.
+
+  - intent: ask_sun_times
+    examples: |
+      - A che ora sorge il sole a [Venezia](city)?
+      - Quando tramonta oggi il sole a [Firenze](city)?
+      - Dammi l'orario di alba e tramonto per [Torino](city).
+      - A che ora sorge il sole?
+      - Quando tramonta il sole?
+      - Orari di alba e tramonto?
+      - Dimmi gli orari di alba/tramonto.
+
+  - intent: ask_city_overview
+    examples: |
+      - Parlami di [Firenze](city)
+      - Dammi una panoramica su [Roma](city)
+      - Voglio sapere qualcosa su [Venezia](city)
+      - Che mi puoi dire di [Milano](city)?
+      - Raccontami di questa città
+      - Che mi dici di qui?
+      - Dammi un’infarinatura
+      - Voglio sapere qualcosa sul posto
 
 
   - lookup: city
@@ -72,6 +113,7 @@ nlu:
       - Dar es Salaam
       - Alessandria
       - Khartoum
+      - Palermo
       - Casablanca
       - Durban
       - Città del Capo
@@ -368,7 +410,6 @@ nlu:
       - Milano
       - Napoli
       - Torino
-      - Palermo
       - Genova
       - Bologna
       - Firenze

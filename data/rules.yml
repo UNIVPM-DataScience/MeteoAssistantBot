@@ -40,3 +40,18 @@ rules:
   steps:
   - intent: ask_activity_advice
   - action: action_activity_advice
+
+- rule: Fornisci qualità dell'aria
+  steps:
+  - intent: ask_air_quality 
+  - action: action_get_air_quality
+
+- rule: Fornisci orari alba/tramonto
+  steps:
+    - intent: ask_sun_times
+    - action: action_get_sun_times
+
+- rule: Fornisci attrazioni città
+  steps:
+    - intent: ask_city_overview
+    - action: action_get_attractions
