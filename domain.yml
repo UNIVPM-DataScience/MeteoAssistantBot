@@ -10,6 +10,7 @@ intents:
   - ask_air_quality
   - ask_sun_times
   - ask_city_overview
+  - deny
 
 entities:
   - city
@@ -63,23 +64,35 @@ responses:
     - text: |
         Puoi chiedermi informazioni riguardo: 
 
-        ☁️ Meteo  
-        • Com'è il tempo a Milano?  
-        • Previsioni settimanali a Napoli?
+        ☁️ Meteo generale  
+        • "Com'è il meteo?"  
+        • "Che tempo fa oggi?"
+
+        ☀️ Previsioni specifiche  
+        • "Dammi il meteo [domani] a [Roma]"  
+        • "Qual è il meteo [giovedì] a [Milano]"
 
         👕 Consigli di abbigliamento  
-        • Cosa indossare lunedì a Roma?  
-        • Ho bisogno di un giubbotto a Bolzano?  
+        • "Cosa mi conviene indossare [oggi] a [Roma]?"  
+        • "Che outfit devo scegliere [dopodomani]?"
 
         🚴 Attività consigliate  
-        • È un buon giorno per correre a Torino?  
-        • Posso andare in bici mercoledì a Firenze?  
+        • "È una buona giornata per [correre] [domani] a [Torino]?"  
+        • "Che [sport] posso fare [oggi]?"
 
-        🌅 Altre informazioni 
-        • Com'è la qualità dell'aria a Palermo?  
-        • Orari di alba e tramonto a Venezia?  
+        🍃 Qualità dell’aria  
+        • "Com'è la qualità dell'aria a [Firenze]?"  
+        • "Dammi l'indice AQI a [Torino]"
 
-        Prova a sostituire “Milano” o la data con qualsiasi altra città o giorno!
+        🌅 Orari del sole  
+        • "A che ora sorge il sole a [Venezia]?"  
+        • "Quando tramonta il sole a [Firenze]?"
+
+        🏙️ Panoramica città  
+        • "Parlami di [Milano]"  
+        • "Dammi una panoramica su [Roma]"
+
+        Sostituisci le parti tra [ ] con la data, la città o l’attività che preferisci!
 
 
   utter_ask_weather_form_city:
@@ -95,7 +108,12 @@ responses:
     - text: |
         ⚠️ Mi dispiace, al momento non riesco ad accedere al servizio meteo. 
         Riprova tra qualche istante o controlla la tua connessione.
+        
+  utter_ask_more:
+    - text: "C’è qualcos’altro che posso fare per te?"
 
+  utter_goodbye:
+    - text: "Va bene, buona giornata! 👋"
 actions:
   - action_get_weather
   - validate_weather_form

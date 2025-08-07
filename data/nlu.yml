@@ -102,6 +102,13 @@ nlu:
       - Dammi un’infarinatura
       - Voglio sapere qualcosa sul posto
 
+  - intent: deny
+    examples: |
+      - no
+      - no, grazie
+      - niente
+      - non adesso
+      - fermati
 
   - lookup: city
     examples: |

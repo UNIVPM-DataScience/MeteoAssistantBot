@@ -10,48 +10,59 @@ rules:
   - intent: help
   - action: utter_help
 
-- rule: Attiva il form per il meteo
+- rule: Attiva il form per il meteo con chiedi_meteo
   steps:
-    - intent: chiedi_meteo
-    - action: weather_form
-    - active_loop: weather_form
+  - intent: chiedi_meteo
+  - action: weather_form
+  - active_loop: weather_form
 
-- rule: Attiva form anche con dammi_meteo
+- rule: Attiva il form per il meteo con dammi_meteo
   steps:
-    - intent: dammi_meteo
-    - action: weather_form
-    - active_loop: weather_form
+  - intent: dammi_meteo
+  - action: weather_form
+  - active_loop: weather_form
 
 - rule: Esegui form weather e chiudi il loop
   condition:
-    - active_loop: weather_form
+  - active_loop: weather_form
   steps:
-    - action: weather_form
-    - active_loop: null
-    - action: utter_submit_weather_form
-    - action: action_get_weather
+  - action: weather_form
+  - active_loop: null
+  - action: utter_submit_weather_form
+  - action: action_get_weather
+  - action: utter_ask_more
 
 - rule: Consiglio abbigliamento
   steps:
   - intent: ask_clothing_advice
   - action: action_clothing_advice
+  - action: utter_ask_more
 
 - rule: Consiglio attività all’aperto
   steps:
   - intent: ask_activity_advice
   - action: action_activity_advice
+  - action: utter_ask_more
 
 - rule: Fornisci qualità dell'aria
   steps:
-  - intent: ask_air_quality 
+  - intent: ask_air_quality
   - action: action_get_air_quality
+  - action: utter_ask_more
 
 - rule: Fornisci orari alba/tramonto
   steps:
-    - intent: ask_sun_times
-    - action: action_get_sun_times
+  - intent: ask_sun_times
+  - action: action_get_sun_times
+  - action: utter_ask_more
 
-- rule: Fornisci attrazioni città
+- rule: Fornisci panoramica città
   steps:
-    - intent: ask_city_overview
-    - action: action_get_attractions
+  - intent: ask_city_overview
+  - action: action_get_attractions
+  - action: utter_ask_more
+
+- rule: Saluto di chiusura su deny
+  steps:
+  - intent: deny
+  - action: utter_goodbye

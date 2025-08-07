@@ -148,7 +148,7 @@ class ActionGetWeather(Action):
             f"(percepiti {feels_like} °C). "
             f"L’umidità è al {humidity}%, la pressione a {pressure} hPa e "
             f"il vento soffia leggermente a {wind_speed} m/s. "
-            f"Si gode di ottima visibilità (circa {visibility_km} km) e copertura nuvolosa pari al {data.get('clouds',{}).get('all','N/D')}%."
+            f"Si gode di ottima visibilità (circa {visibility_km} km) e copertura nuvolosa pari al {data.get('clouds',{}).get('all','N/D')}%. \n"
         )
 
         dispatcher.utter_message(text=message)
@@ -223,7 +223,8 @@ class ActionGetWeather(Action):
             desc, temp, hum, wind_v, emoji = summarize(evening)
             parts.append(
                 f" In serata ci aspettiamo {desc} {emoji}, temperature in calo verso i {temp}°C, "
-                f"umidità al {hum}% e vento a {wind_v} m/s."
+                f"umidità al {hum}% e vento a {wind_v} m/s. \n"
+                
             )
 
         message = "".join(parts)
@@ -806,14 +807,14 @@ class ActionGetAttractions(Action):
 
         message = (
             f"{info['city']} è una {info['category'].lower()} della regione {info['region']} in {info['country']}. "
-            f"È famosa per {info['description'].lower()} Ogni anno accoglie circa {info['annual_tourists']} turisti. "
-            f"La moneta locale è {info['currency']} e si parla principalmente {info['language']}, con tradizioni legate al {info['religion'].lower()}. "
+            f"È famosa per {info['description']} Ogni anno accoglie circa {info['annual_tourists']} turisti. "
+            f"La moneta locale è {info['currency'].lower()} e si parla principalmente {info['language'].lower()}, con tradizioni legate al {info['religion'].lower()}. "
             f"Non perdere i piatti tipici come {info['foods'].lower()}. "
             f"Il momento migliore per visitarla è {info['best_time'].lower()}, il costo della vita è {info['cost_of_living'].lower()} "
             f"e la sicurezza viene descritta come {info['safety'].lower()}. "
-            f"Spicca come {info['cultural_significance'].lower()}."
+            f"Spicca come {info['cultural_significance']} \n"
         )
 
-
         dispatcher.utter_message(text=message)
+
         return []
