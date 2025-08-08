@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Any, Text, Dict, List, Optional
 import os
 import logging
@@ -13,6 +14,18 @@ from typing import List
 import pandas as pd
 from requests.exceptions import RequestException, Timeout,HTTPError
 
+
+from typing import Any, Dict, List, Optional, Tuple
+
+
+
+# Sinonimi per fasce orarie (opzionali)
+_TIME_HINTS = {
+    "mattina": 9, "mattino": 9, "stamattina": 9,
+    "pomeriggio": 15, "oggi pomeriggio": 15, "questo pomeriggio": 15,
+    "sera": 21, "stasera": 21,
+    "notte": 23, "stanotte": 23,
+}
 #url dataset https://www.kaggle.com/datasets/faizadani/european-tour-destinations-dataset?resource=download
 load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY") or os.getenv("API_KEY")
@@ -466,117 +479,6 @@ class ActionClothingAdvice(Action):
         return sentence
 
 
-class ActionActivityAdvice(Action):
-
-    def __init__(self) -> None:
-        self.client = OpenWeatherClient(API_KEY)
-
-    def name(self) -> Text:
-        return "action_activity_advice"
-
-    def run(
-        self, dispatcher: CollectingDispatcher,
-        tracker: Tracker, domain: Dict[Text, Any]
-    ) -> List[Dict[Text, Any]]:
-
-        city     = tracker.get_slot("city")
-        date_raw = tracker.get_slot("date") or "oggi"
-        activity = (tracker.get_slot("activity")
-                    or next(tracker.get_latest_entity_values("activity"), None))
-
-        if not city:
-            dispatcher.utter_message(text="❓ Per favore, indicami una città.")
-            return []
-        if not activity:
-            dispatcher.utter_message(text="❓ Quale attività ti piacerebbe fare?")
-            return []
-
-        events: List[SlotSet] = [SlotSet("activity", activity)]
-
-        data, label = self._fetch_weather(city, date_raw)
-        if data is None:
-            dispatcher.utter_message(text=f"😕 Scusami, non ho previsioni per “{date_raw}” a {city}.")
-            return events
-        
-        msg = self._build_message(label, data, activity)
-        dispatcher.utter_message(text=msg)
-        return events
-
-    def _fetch_weather(self, city: str, date_raw: str):
-        slot = date_raw.lower()
-        if slot in ["oggi", "adesso", "ora"]:
-            current = self.client.get_current(city)
-            if not current:
-                return None, None
-            return current, f"Oggi a {city}"
-        forecast = self.client.get_forecast(city)
-        if not forecast or not forecast.get("list"):
-            return None, None
-
-        today = datetime.now().date()
-        if slot in _WEEKDAY_LOOKUP:
-            target_wd = _WEEKDAY_LOOKUP[slot]
-            delta = (target_wd - today.weekday() + 7) % 7 or 7
-            target = today + timedelta(days=delta)
-        else:
-            mapping = {"domani": 1, "dopodomani": 2}
-            target = today + timedelta(days=mapping.get(slot, 0))
-
-        tz_offset = forecast["city"].get("timezone", 0)
-        entry = next(
-            (
-                e for e in forecast["list"]
-                if (datetime.fromtimestamp(e["dt"], timezone.utc)
-                    + timedelta(seconds=tz_offset)).date() == target
-            ),
-            None
-        )
-        if not entry:
-            return None, None
-
-        simplified = {
-            "main":    entry["main"],
-            "wind":    entry["wind"],
-            "weather": entry["weather"][0]
-        }
-        label = f"Previsioni per {date_raw} a {city}"
-        return simplified, label
-
-    def _build_message(self, label: str, data: Dict[str, Any], activity: str) -> str:
-        temp       = data["main"].get("temp", 0.0)
-        desc       = data["weather"].get("description", "").capitalize()
-        rain       = "pioggia" in desc.lower() or "rain" in desc.lower()
-        wind_speed = data["wind"].get("speed", 0.0)
-
-        if rain:
-            alternative = " leggere un libro 📖 o guardare un film 🍿"
-            return (
-                f"{label}: {desc.lower()} 🌧️, non è il massimo per {activity}. "
-                f"Potresti considerare di{alternative}."
-            )
-
-        if 10 <= temp <= 25 and wind_speed < 5:
-            return (
-                f"{label}: ottime condizioni per {activity}! ✅ {desc.lower()}, "
-                f"{temp:.1f}°C e vento lieve ({wind_speed:.1f} m/s). "
-                "Divertiti"
-            )
-
-        reasons = []
-        if temp < 10:
-            reasons.append("fa piuttosto freddo 🥶")
-        elif temp > 30:
-            reasons.append("fa molto caldo ☀️")
-        if wind_speed >= 5:
-            reasons.append("c'è un bel po' di vento 🌬️")
-
-        reason_text = " e ".join(reasons) if reasons else desc.lower()
-        return (
-            f"{label}: {reason_text}, non è l’ideale per {activity}. "
-        )
-
-
-
 class ActionGetAirQuality(Action):
 
     def name(self) -> Text:
@@ -818,3 +720,366 @@ class ActionGetAttractions(Action):
         dispatcher.utter_message(text=message)
 
         return []
+ 
+class ActionActivityAdvice(Action):
+
+    def __init__(self) -> None:
+        self.client = OpenWeatherClient(API_KEY)
+
+    def name(self) -> str:
+        return "action_activity_advice"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+
+        city = tracker.get_slot("city")
+        date_raw = tracker.get_slot("date") or "oggi"
+        activity = (
+            tracker.get_slot("activity")
+            or next(tracker.get_latest_entity_values("activity"), None)
+        )
+
+        if not city:
+            dispatcher.utter_message(text="❓ Per favore, indicami una città.")
+            return []
+        if not activity:
+            dispatcher.utter_message(text="❓ Quale attività ti piacerebbe fare?")
+            return []
+
+        events: List[SlotSet] = [SlotSet("activity", activity)]
+
+        data, label = self._fetch_weather(city, date_raw)
+        if data is None:
+            dispatcher.utter_message(
+                text=f"😕 Scusami, non ho previsioni per “{date_raw}” a {city}."
+            )
+            return events
+
+        msg = self._build_message(label, data, activity)
+        dispatcher.utter_message(text=msg)
+        return events
+
+    # -------------------------
+    # Weather fetching / parsing
+    # -------------------------
+
+    def _fetch_weather(self, city: str, date_raw: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """Ritorna (meteo_sintetico, etichetta) per la data richiesta.
+        Supporta: oggi/adesso/ora, domani/dopodomani, giorni della settimana,
+        e fasce orarie indicative (mattina/pomeriggio/sera/stanotte)."""
+
+        slot = (date_raw or "").strip().lower()
+
+        # 1) NOW
+        if slot in {"oggi", "adesso", "ora"} or any(k in slot for k in {"adesso", "ora"}):
+            current = self.client.get_current(city)
+            if not current:
+                return None, None
+            simp = self._simplify_current(current)
+            return simp, f"Oggi a {city}"
+
+        # 2) FORECAST
+        forecast = self.client.get_forecast(city)
+        if not forecast or not forecast.get("list"):
+            return None, None
+
+        tz_offset = forecast.get("city", {}).get("timezone", 0)
+        now_utc = datetime.now(timezone.utc)
+        local_now = now_utc + timedelta(seconds=tz_offset)
+        today = local_now.date()
+
+        # Data target
+        target_date = self._resolve_target_date(slot, today)
+        desired_hour = self._resolve_desired_hour(slot)  # None ⇒ default
+
+        # Filtra i blocchi del giorno target, usando orario locale della città
+        day_blocks: List[Tuple[Dict[str, Any], datetime]] = []
+        for e in forecast["list"]:
+            local_dt = datetime.fromtimestamp(e["dt"], timezone.utc) + timedelta(seconds=tz_offset)
+            if local_dt.date() == target_date:
+                day_blocks.append((e, local_dt))
+
+        if not day_blocks:
+            return None, None
+
+        # Scegli lo slot più vicino all'ora desiderata (default 12)
+        target_hour = 12 if desired_hour is None else desired_hour
+        entry, local_dt = min(day_blocks, key=lambda p: abs(p[1].hour - target_hour))
+
+        simplified = {
+            "main":    entry.get("main", {}),
+            "wind":    entry.get("wind", {}),
+            "weather": (entry.get("weather") or [{}])[0],
+            "pop":     entry.get("pop", 0.0),          # Probabilità precipitazioni (0..1)
+            "rain":    entry.get("rain", {}),          # mm (1h/3h)
+            "snow":    entry.get("snow", {}),          # mm (1h/3h)
+            "clouds":  entry.get("clouds", {}),
+        }
+        label = f"Previsioni per {date_raw} a {city}"
+        return simplified, label
+
+    def _simplify_current(self, current: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalizza la risposta 'current' in un formato simile al forecast."""
+        return {
+            "main":    current.get("main", {}),
+            "wind":    current.get("wind", {}),
+            "weather": (current.get("weather") or [{}])[0],
+            "pop":     0.0,  # non disponibile sul current standard
+            "rain":    current.get("rain", {}),
+            "snow":    current.get("snow", {}),
+            "clouds":  current.get("clouds", {}),
+        }
+
+    def _resolve_target_date(self, slot: str, today: date) -> date:
+        # Giorni della settimana (prossimo occorrere, non oggi)
+        for key, wd in _WEEKDAY_LOOKUP.items():
+            if key in slot:
+                delta = (wd - today.weekday() + 7) % 7 or 7
+                return today + timedelta(days=delta)
+
+        # Espressioni relative
+        if "dopodomani" in slot:
+            return today + timedelta(days=2)
+        if "domani" in slot:
+            return today + timedelta(days=1)
+
+        # Default: oggi
+        return today
+
+    def _resolve_desired_hour(self, slot: str) -> Optional[int]:
+        # Rileva indicazioni come "pomeriggio", "stasera", ecc.
+        for key, hour in _TIME_HINTS.items():
+            if key in slot:
+                return hour
+        return None
+
+    # -------------------------
+    # Helpers per testo naturale
+    # -------------------------
+
+    def _human_join(self, items, sep=", ", last_sep=" e "):
+        items = [str(x) for x in items if x]
+        if not items:
+            return ""
+        if len(items) == 1:
+            return items[0]
+        return sep.join(items[:-1]) + last_sep + items[-1]
+
+    def _format_conditions(self, text_desc: str, temp: float, feels: float,
+                           wind_kmh: float, hum: Optional[float],
+                           rainmm: float, snowmm: float) -> str:
+        parts: List[str] = []
+        if text_desc:
+            # Prima lettera maiuscola
+            t = text_desc[0].upper() + text_desc[1:]
+            parts.append(t)
+        parts.append(f"{temp:.1f}°C")
+        if abs(feels - temp) >= 1.0:
+            parts.append(f"percepita {feels:.1f}°C")
+        parts.append(f"vento {wind_kmh:.0f} km/h")
+        if hum is not None:
+            parts.append(f"umidità {int(hum)}%")
+        if rainmm:
+            parts.append(f"pioggia {float(rainmm):.1f} mm")
+        if snowmm:
+            parts.append(f"neve {float(snowmm):.1f} mm")
+        return self._human_join(parts, sep=", ", last_sep=" e ")
+
+    # -------------------------
+    # Message building / scoring
+    # -------------------------
+
+    def _build_message(self, label: str, data: Dict[str, Any], activity: str) -> str:
+        main = data.get("main", {}) or {}
+        wind = data.get("wind", {}) or {}
+        wx   = data.get("weather", {}) or {}
+        pop  = float(data.get("pop", 0.0) or 0.0)
+
+        rainmm = (data.get("rain") or {}).get("1h") or (data.get("rain") or {}).get("3h") or 0.0
+        snowmm = (data.get("snow") or {}).get("1h") or (data.get("snow") or {}).get("3h") or 0.0
+
+        # Numeri base
+        temp  = float(main.get("temp", 0.0) or 0.0)
+        feels = float(main.get("feels_like", temp) or temp)
+        hum   = main.get("humidity", None)
+
+        wind_ms  = float(wind.get("speed", 0.0) or 0.0)
+        wind_kmh = wind_ms * 3.6
+
+        desc = (wx.get("description") or "").capitalize()
+        text_desc = desc.lower()
+
+        is_precip = (
+            any(k in text_desc for k in ["pioggia", "rain", "rovesci", "temporale", "neve"])
+            or pop >= 0.5
+            or float(rainmm or 0.0) > 0
+            or float(snowmm or 0.0) > 0
+        )
+
+        verdict, tips = self._score_activity(activity, temp, feels, wind_kmh, hum, is_precip)
+
+        # Contesto più naturale: "Domani mattina a Firenze" invece di "Previsioni per ..."
+        context = label.replace("Previsioni per ", "").strip().capitalize()
+
+        # Testo verdict più fluido
+        if verdict == "ok":
+            verdict_text = f"{activity} ok ✅"
+        elif verdict == "caution":
+            verdict_text = f"{activity} fattibile con qualche accortezza ⚠️"
+        else:
+            verdict_text = f"meglio evitare {activity} ❌"
+
+        # Condizioni meteo in una frase tra parentesi
+        cond_sentence = self._format_conditions(
+            text_desc if text_desc else "meteo variabile",
+            temp, feels, wind_kmh, hum, rainmm, snowmm
+        )
+
+        # Consiglio: frase naturale
+        tip_sentence = tips if tips else ""
+        time_hint = ""
+        if (temp >= 30 or feels >= 30) and verdict != "no":
+            time_hint = " Orario migliore: 7–10 o dopo le 19."
+
+        # Alternative: frase unica con elenco naturale
+        alt_sentence = ""
+        if verdict in ("caution", "no"):
+            alts = self._suggest_alternatives(activity, is_precip, wind_kmh, temp)
+            if alts:
+                alt_sentence = " In alternativa puoi optare per " + self._human_join(alts, sep=", ", last_sep=" o ") + "."
+
+        # Messaggio finale
+        first_clause = f"{context}: {verdict_text}"
+        details = f" ({cond_sentence})."
+        tips_clause = f" {tip_sentence}." if tip_sentence else ""
+        msg = first_clause + details + tips_clause + time_hint + alt_sentence
+        return msg
+
+    def _score_activity(
+        self,
+        activity: str,
+        temp: float,
+        feels: float,
+        wind_kmh: float,
+        hum: Optional[float],
+        is_precip: bool,
+    ) -> Tuple[str, str]:
+        """Ritorna (verdict: ok|caution|no, tips)."""
+        a = (activity or "").strip().lower()
+        hot = temp >= 29
+        cold = temp <= 6
+        very_cold = temp <= 2
+        windy = wind_kmh >= 30
+        very_windy = wind_kmh >= 40
+
+        def base_tips() -> List[str]:
+            tips: List[str] = []
+            if hot:
+                tips.append("preferisci mattino presto o sera e idratati")
+            if cold:
+                tips.append("vestiti a strati; scalda mani/orecchie")
+            if windy:
+                tips.append("scegli percorsi riparati dal vento")
+            if hum is not None and hum >= 80 and hot:
+                tips.append("rallenta il ritmo: umidità alta")
+            if is_precip:
+                tips.append("porta k-way/impermeabile")
+            return tips
+
+        def pack_tips(extra: Optional[str] = None) -> str:
+            tips = base_tips()
+            if extra:
+                tips.insert(0, extra)
+            return "; ".join(tips)
+
+        # Ciclismo
+        if "cicl" in a or "bici" in a:
+            if is_precip or very_windy or hot:
+                return "no", pack_tips("oggi la bici è sconsigliata")
+            if windy or cold:
+                return "caution", pack_tips("ok, ma attenzione a folate e freddo")
+            return "ok", pack_tips("condizioni buone")
+
+        # Corsa/Running (più conservativa col caldo)
+        if "corr" in a or "corsa" in a or "running" in a:
+            very_hot = temp >= 32 or feels >= 33
+            hotish   = temp >= 30 or feels >= 30
+            if very_hot:
+                return "no", pack_tips("meglio evitare corsa nelle ore calde; sposta a mattino presto o sera")
+            if hotish:
+                return "caution", pack_tips("ok solo a ritmo facile e fuori dal picco caldo (7–10 / dopo le 19)")
+            if (hum and hum >= 75 and temp >= 28) or very_windy:
+                return "no", pack_tips("condizioni gravose per correre")
+            if is_precip or windy or cold:
+                return "caution", pack_tips("ok, ma scegli tratti riparati")
+            return "ok", pack_tips("ottimo momento per correre")
+
+        # Passeggiata/Camminata
+        if "passegg" in a or "cammin" in a:
+            if is_precip and (windy or very_cold):
+                return "no", pack_tips("oggi la passeggiata non è ideale")
+            if is_precip or hot or cold:
+                return "caution", pack_tips("ok, ma valuta durata e ripari")
+            return "ok", pack_tips("perfetto per una camminata")
+
+        # Picnic
+        if "picnic" in a:
+            if is_precip or wind_kmh >= 25 or not (15 <= temp <= 30):
+                return "no", pack_tips("poco confortevole per un picnic")
+            return "ok", "trova ombra, porta acqua e repellente"
+
+        # Yoga
+        if "yoga" in a:
+            if is_precip or wind_kmh >= 35 or temp <= 5 or temp >= 33:
+                return "caution", pack_tips("meglio yoga indoor oggi")
+            return "ok", "scegli un punto all’ombra e tappetino antiscivolo"
+
+        # Default generico
+        if is_precip or windy or hot or cold:
+            return "caution", pack_tips("meteo un po’ impegnativo")
+        return "ok", pack_tips("condizioni buone")
+
+    def _suggest_alternatives(
+        self,
+        activity: str,
+        is_precip: bool,
+        wind_kmh: float,
+        temp: float,
+    ) -> List[str]:
+        """Suggerisce alternative in base a meteo e attività."""
+        a = (activity or "").strip().lower()
+        hot = temp >= 29
+        cold = temp <= 6
+        windy = wind_kmh >= 30
+
+        def indoor_pack() -> List[str]:
+            return ["yoga indoor 🧘", "palestra/HIIT 🏋️", "arrampicata indoor 🧗", "piscina 🏊"]
+
+        # Bici con vento/pioggia
+        if ("cicl" in a or "bici" in a) and (windy or is_precip):
+            return ["spinning 🚴‍♂️", "passeggiata in parco riparato 🌳", "nuoto 🏊"]
+
+        # Corsa con caldo/pioggia/vento forte
+        if ("corr" in a or "corsa" in a or "running" in a) and (hot or is_precip or windy):
+            return ["tapis roulant 🏃‍♂️", "camminata veloce all’ombra 🌳", "nuoto 🏊"]
+
+        # Picnic non ideale
+        if "picnic" in a:
+            if is_precip:
+                return ["passeggiata breve tra le schiarite 🚶", "brunch al coperto 🥐", "museo 📚"]
+            return ["passeggiata all’ombra 🌳", "brunch al coperto 🥐", "museo 📚"]
+
+        # Passeggiata con meteo brutto
+        if ("passegg" in a or "cammin" in a) and (is_precip or cold):
+            return ["visita museo 📚", "piscina 🏊", "yoga indoor 🧘"]
+
+        # Generiche con meteo ostile
+        if is_precip or windy or hot or cold:
+            return indoor_pack()
+
+        # Se tutto ok ma vuoi variare
+        return ["bicicletta 🚴", "corsa leggera 🏃", "camminata collinare ⛰️"]

@@ -1,0 +1,12 @@
+{
+  "0": "ask_activity_advice",
+  "1": "ask_air_quality",
+  "2": "ask_city_overview",
+  "3": "ask_clothing_advice",
+  "4": "ask_sun_times",
+  "5": "chiedi_meteo",
+  "6": "dammi_meteo",
+  "7": "deny",
+  "8": "help",
+  "9": "start"
+}

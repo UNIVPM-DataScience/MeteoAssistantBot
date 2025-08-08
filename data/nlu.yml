@@ -64,10 +64,16 @@ nlu:
       - Posso fare un [picnic](activity) [domani](date) a [Torino](city)?
       - Quale [sport](activity) praticare questo [pomeriggio](date)?
       - Mi consigli una [passeggiata](activity) [sabato](date) a [Firenze](city)?
-      - Vorrei fare un [ciclismo](activity) [lunedì](date) a [Milano](city)
-      - Posso fare un picnic [domani](date)?
+      - Vorrei fare del [ciclismo](activity) [lunedì](date) a [Milano](city)
+      - Posso fare un [picnic](activity) [domani](date)?
       - Mi consigli un’attività all’aperto [oggi](date)?
       - Che sport potrei fare [sabato](date)?
+      - È ok se faccio [corsa](activity) [stasera](date)?
+      - Con questo vento, meglio [bicicletta](activity) o [passeggiata](activity)?
+      - Che mi suggerisci di fare [dopodomani](date) a [Bologna](city)?
+      - Idee per un’attività [all’aperto](activity) a [Napoli](city)?
+      - Che attività va bene con pioggia [oggi](date)?
+      - Ho voglia di [yoga](activity) [domani](date): che ne pensi?
 
   - intent: ask_air_quality
     examples: |
@@ -448,105 +454,43 @@ nlu:
       - sera
       - notte
 
-
   - lookup: activity
     examples: |
       - corsa
-      - correre
       - jogging
-      - camminata
+      - running
       - passeggiata
-      - trekking
-      - escursione
-      - alpinismo
-      - arrampicata
+      - camminata
       - bicicletta
+      - bici
       - ciclismo
-      - mountain bike
-      - nuoto
-      - tuffi
-      - snorkeling
-      - immersioni
-      - surf
-      - windsurf
-      - kitesurf
-      - vela
-      - kayak
-      - canoa
-      - pesca
-      - sci
-      - snowboard
-      - slittino
-      - pattinaggio
-      - tennis
-      - padel
-      - squash
-      - ping pong
-      - calcio
-      - calcetto
-      - basket
-      - pallacanestro
-      - pallavolo
-      - rugby
-      - baseball
-      - softball
-      - golf
-      - equitazione
-      - arti marziali
-      - karate
-      - judo
-      - taekwondo
-      - boxe
-      - kickboxing
-      - pilates
-      - yoga
-      - meditazione
-      - stretching
-      - ginnastica
-      - palestra
-      - allenamento
-      - crossfit
-      - zumba
-      - danza
-      - ballo
-      - balli di gruppo
-      - ballo latino
-      - escursione
-      - nordic walking
-      - campeggio
       - picnic
-      - attività all’aperto
-      - giardinaggio
-      - fotografia
-      - birdwatching
-      - osservazione delle stelle
-      - lettura
-      - scrittura
-      - pittura
-      - disegno
-      - modellismo
-      - fai da te
-      - bricolage
-      - cucina
-      - pasticceria
-      - videogiocare
-      - giochi da tavolo
-      - puzzle
-      - cinema
-      - teatro
-      - musica
-      - suonare uno strumento
-      - cantare
-      - podcast
-      - podcasting
-      - volontariato
-      - visite culturali
-      - musei
-      - mostre
-      - shopping
-      - visitare monumenti
-      - escursioni naturalistiche
-      - escursioni storiche
-      - geocaching
-      - esplorare
+      - trekking
+      - escursionismo
+      - nuoto
+      - piscina
+      - tennis
+      - calcio
+      - yoga
+      - palestra
+      - arrampicata
+      - pattinaggio
+      - spiaggia
+      - parkour
 
+  # Sinonimi per normalizzare l’entità activity
+  - synonym: bicicletta
+    examples: |
+      - bici
+      - andare in bici
+
+  - synonym: corsa
+    examples: |
+      - jogging
+      - running
+
+  - synonym: escursionismo
+    examples: |
+      - trekking
+      - hike
+      - hiking
