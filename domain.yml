@@ -64,33 +64,26 @@ responses:
     - text: |
         Puoi chiedermi informazioni riguardo: 
 
-        ☁️ Meteo generale  
-        • "Com'è il meteo?"  
+        ☁️ Meteo generale   
         • "Che tempo fa oggi?"
 
-        ☀️ Previsioni specifiche  
-        • "Dammi il meteo [domani] a [Roma]"  
+        ☀️ Previsioni specifiche    
         • "Qual è il meteo [giovedì] a [Milano]"
 
         👕 Consigli di abbigliamento  
-        • "Cosa mi conviene indossare [oggi] a [Roma]?"  
         • "Che outfit devo scegliere [dopodomani]?"
 
         🚴 Attività consigliate  
         • "È una buona giornata per [correre] [domani] a [Torino]?"  
-        • "Che [sport] posso fare [oggi]?"
 
         🍃 Qualità dell’aria  
         • "Com'è la qualità dell'aria a [Firenze]?"  
-        • "Dammi l'indice AQI a [Torino]"
 
         🌅 Orari del sole  
-        • "A che ora sorge il sole a [Venezia]?"  
-        • "Quando tramonta il sole a [Firenze]?"
+        • "A che ora sorge il sole a [Venezia]?" 
 
         🏙️ Panoramica città  
         • "Parlami di [Milano]"  
-        • "Dammi una panoramica su [Roma]"
 
         Sostituisci le parti tra [ ] con la data, la città o l’attività che preferisci!
 
